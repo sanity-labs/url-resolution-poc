@@ -1,0 +1,15 @@
+{
+  "name": "url-resolution-poc",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:routes": "pnpm --filter @sanity/routes build"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  },
+  "dependencies": {
+    "@sanity/client": "^7.16.0"
+  }
+}
