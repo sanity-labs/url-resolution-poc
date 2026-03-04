@@ -65,6 +65,9 @@ export interface RouteResolver {
   /** Static mode only: rebuild the route map shard for a given type */
   rebuildType(type: string): Promise<void>
 
+  /** Generate custom GROQ function declarations for all routable types */
+  groqFunctions(): Promise<string>
+
   /** Realtime mode only: subscribe to content changes, returns unsubscribe fn */
   listen(): () => void
 }

@@ -197,6 +197,23 @@ export function createRouteResolver(
         return types
       },
 
+      async groqFunctions(): Promise<string> {
+        const config = await getConfig()
+        const declarations: string[] = []
+
+        for (const route of config.routes || []) {
+          for (const type of route.types || []) {
+            const fnName = `routes::${type}Path`
+            const id = `routes.${channel}.${type}`
+            declarations.push(
+              `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
+            )
+          }
+        }
+
+        return declarations.join('\n')
+      },
+
       preload(): Promise<Map<string, string>> {
         throw new Error('preload() is only available in static mode')
       },
@@ -375,6 +392,23 @@ export function createRouteResolver(
 
       // Update cache
       shardCache.set(type, shard)
+    },
+
+    async groqFunctions(): Promise<string> {
+      const config = await getConfig()
+      const declarations: string[] = []
+
+      for (const route of config.routes || []) {
+        for (const type of route.types || []) {
+          const fnName = `routes::${type}Path`
+          const id = shardId(type)
+          declarations.push(
+            `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
+          )
+        }
+      }
+
+      return declarations.join('\n')
     },
 
     listen(): () => void {

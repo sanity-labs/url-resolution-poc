@@ -2,6 +2,7 @@
   "name": "url-resolution-poc",
   "private": true,
   "scripts": {
+    "dev": "pnpm --parallel -r dev",
     "build": "pnpm -r build",
     "build:routes": "pnpm --filter @sanity/routes build"
   },
