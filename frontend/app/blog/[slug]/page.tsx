@@ -1,7 +1,6 @@
-import { PortableText } from '@portabletext/react'
 import { sanityFetch } from '@/lib/live'
 import { resolver } from '@/lib/routes'
-import { CodeBlock } from '@/components/CodeBlock'
+import { PortableTextBody } from '@/components/PortableTextBody'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -27,24 +26,7 @@ export default async function BlogPostPage({ params }: Props) {
     <article>
       <nav><a href="/">← Home</a></nav>
       <h1>{(post as any).title}</h1>
-      {(post as any).body && (
-        <PortableText
-          value={(post as any).body}
-          components={{
-            types: {
-              code: ({ value }: any) => (
-                <CodeBlock code={value.code} language={value.language} />
-              ),
-            },
-            marks: {
-              internalLink: ({ value, children }: any) => {
-                const url = urlMap.get(value.reference._ref)
-                return url ? <a href={url}>{children}</a> : <span>{children}</span>
-              },
-            },
-          }}
-        />
-      )}
+      <PortableTextBody value={(post as any).body} urlMap={urlMap} />
     </article>
   )
 }
