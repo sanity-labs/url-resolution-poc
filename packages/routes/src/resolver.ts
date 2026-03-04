@@ -354,6 +354,14 @@ export function createRouteResolver(
         }
       }
 
+      if (result.size === 0 && shards.length === 0) {
+        console.warn(
+          '[@sanity/routes] preload() returned 0 entries. ' +
+          'Route map shards have private IDs (dots) and require an authenticated client. ' +
+          'Make sure your Sanity client has a read token configured.'
+        )
+      }
+
       return result
     },
 
