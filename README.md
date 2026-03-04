@@ -832,6 +832,138 @@ The resolver assumes one dataset. Cross-dataset route resolution isn't supported
 
 ---
 
+## What This Enables
+
+The route system is a foundation. Here's what becomes easy to build on top of it — each of these is an afternoon project, not a quarter-long initiative.
+
+### Link Health Checks
+
+The route map uses weak references. When a document is deleted, its `_ref` dangles — and you can query for that:
+
+```groq
+// Find all stale route entries (document was deleted but entry remains)
+*[_type == "routes.map"]{
+  _id,
+  "staleEntries": entries[!defined(doc->)]{ path, doc }
+}[count(staleEntries) > 0]
+```
+
+A scheduled Function runs this daily, flags stale entries, and optionally generates redirects. No separate deletion tracking — just query for dangling refs.
+
+### Automatic Redirects
+
+When a slug changes, the sync Function can detect the old path and create a redirect:
+
+```ts
+// In the sync handler, before updating the entry:
+const oldEntry = shard.entries.find(e => e.doc._ref === docId)
+if (oldEntry && oldEntry.path !== newPath) {
+  await client.create({
+    _type: 'routes.redirect',
+    channel: 'web',
+    fromPath: `${basePath}/${oldEntry.path}`,
+    toPath: `${basePath}/${newPath}`,
+    createdAt: new Date().toISOString(),
+  })
+}
+```
+
+The frontend or CDN reads `routes.redirect` documents to serve 301s. Content editors rename slugs freely — redirects happen automatically.
+
+### Sitemap Generation
+
+`preload()` gives you every URL in one query:
+
+```ts
+const resolver = createRouteResolver(client, 'web', { mode: 'static' })
+const urlMap = await resolver.preload()
+
+const sitemap = Array.from(urlMap.entries()).map(([id, url]) => ({
+  loc: url,
+  lastmod: new Date().toISOString(),
+}))
+// → Write to sitemap.xml
+```
+
+A CI job or scheduled Function generates `sitemap.xml` from the route map. Always in sync with published content. No crawling required.
+
+### Cross-Document Link Validation
+
+Portable Text internal links carry `_ref` IDs. Combined with the route map, you can validate every internal link across your entire content corpus:
+
+```groq
+// Find all PT internal links and check if they resolve to a route
+*[defined(body)]{
+  _id,
+  title,
+  "brokenLinks": body[].markDefs[_type == "internalLink"]{
+    "targetId": reference._ref,
+    "hasRoute": count(
+      *[_type == "routes.map" && ^.reference._ref in entries[].doc._ref]
+    ) > 0
+  }[!hasRoute]
+}[count(brokenLinks) > 0]
+```
+
+Run this as a validation rule, a scheduled check, or a CI gate. Catch broken internal links before they reach production.
+
+### MCP / AI Agent Integration
+
+The MCP's `linkResolver` can use the same system as the frontend — no separate URL logic:
+
+```ts
+// In your MCP tool handler
+import { createRouteResolver } from '@sanity/routes/resolver'
+
+const resolver = createRouteResolver(client, 'web')
+
+async function getDocumentUrl(documentId: string) {
+  const url = await resolver.resolveById(documentId)
+  if (!url) throw new Error(`No route found for ${documentId}`)
+  return url
+}
+
+// AI agent asks: "What's the URL for the Agent Context article?"
+// MCP resolves: "https://www.sanity.io/docs/ai/agent-context" ✓
+// Not:          "https://www.sanity.io/docs/agent-context"     ✗ (404)
+```
+
+Zero-token resolution means the MCP doesn't need credentials to resolve URLs on public datasets.
+
+### Multi-Channel Publishing
+
+Same document, different URLs per channel. Each channel gets its own route config:
+
+```json
+[
+  {
+    "_type": "routes.config",
+    "channel": "web",
+    "routes": [{ "types": ["article"], "basePath": "/docs" }]
+  },
+  {
+    "_type": "routes.config",
+    "channel": "mobile",
+    "routes": [{ "types": ["article"], "basePath": "/m/docs" }]
+  }
+]
+```
+
+```ts
+const webResolver = createRouteResolver(client, 'web')
+const mobileResolver = createRouteResolver(client, 'mobile')
+
+await webResolver.resolveById('article-installation')
+// → "https://www.sanity.io/docs/getting-started/installation"
+
+await mobileResolver.resolveById('article-installation')
+// → "https://m.sanity.io/m/docs/getting-started/installation"
+```
+
+The content team publishes once. URLs adapt per platform.
+
+---
+
 ## Sanity Project
 
 This POC runs against a real Sanity project with production content:
