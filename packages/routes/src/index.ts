@@ -10,7 +10,7 @@ export type {RoutesPresentationOptions} from './presentation.js'
 export {routeConfig, routeMap, createRouteMapType} from './schema.js'
 
 // ─── Components ──────────────────────────────────────────────────────
-export {RouteEntryInput, DocumentTypePicker, PathExpressionField} from './components/index.js'
+export {RouteEntryInput, DocumentTypePicker, PathExpressionField, SlugWithUrlPreview} from './components/index.js'
 
 // ─── Resolver ────────────────────────────────────────────────────────
 export {createRouteResolver} from './resolver.js'

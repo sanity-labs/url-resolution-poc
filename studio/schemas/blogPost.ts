@@ -1,4 +1,5 @@
 import { defineType, defineField } from 'sanity'
+import { SlugWithUrlPreview } from '@sanity/routes'
 
 export const blogPost = defineType({
   name: 'blogPost',
@@ -6,7 +7,12 @@ export const blogPost = defineType({
   type: 'document',
   fields: [
     defineField({ name: 'title', type: 'string' }),
-    defineField({ name: 'slug', type: 'slug', options: { source: 'title' } }),
+    defineField({
+      name: 'slug',
+      type: 'slug',
+      options: { source: 'title' },
+      components: { input: SlugWithUrlPreview },
+    }),
     defineField({
       name: 'body',
       type: 'array',
