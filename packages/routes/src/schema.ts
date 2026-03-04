@@ -1,4 +1,7 @@
 import {defineType, defineField, defineArrayMember} from 'sanity'
+import {RouteEntryInput} from './components/RouteEntryInput.js'
+import {DocumentTypePicker} from './components/DocumentTypePicker.js'
+import {PathExpressionField} from './components/PathExpressionField.js'
 
 /**
  * Schema type definition for route configuration documents.
@@ -74,6 +77,9 @@ export const routeConfig = defineType({
       of: [
         defineArrayMember({
           type: 'object',
+          components: {
+            input: RouteEntryInput,
+          },
           fields: [
             defineField({
               name: 'types',
@@ -92,12 +98,87 @@ export const routeConfig = defineType({
                 'The URL prefix prepended to every document\'s slug. A base path of `/blog` produces URLs like `/blog/my-post`.',
               validation: (rule) => rule.required(),
             }),
+            // Mode selector
+            defineField({
+              name: 'mode',
+              title: 'Path Pattern',
+              type: 'string',
+              description: 'How the URL path is built after the base path.',
+              options: {
+                list: [
+                  {title: 'Slug only', value: 'simpleSlug'},
+                  {title: 'Section + slug', value: 'parentSlug'},
+                  {title: 'Custom GROQ expression', value: 'custom'},
+                ],
+                layout: 'radio',
+              },
+              initialValue: 'simpleSlug',
+            }),
+            // Slug field override (visible in simpleSlug and parentSlug modes)
+            defineField({
+              name: 'slugField',
+              title: 'Slug Field',
+              type: 'string',
+              description:
+                'The field on the document used as the URL slug. Defaults to `slug.current`.',
+              placeholder: 'slug.current',
+              hidden: ({parent}) => parent?.mode === 'custom',
+            }),
+            // Parent config (visible in parentSlug mode only)
+            defineField({
+              name: 'parentType',
+              title: 'Parent Document Type',
+              type: 'string',
+              description:
+                'The document type whose slug becomes the first path segment.',
+              hidden: ({parent}) => parent?.mode !== 'parentSlug',
+              components: {
+                input: DocumentTypePicker,
+              },
+            }),
+            defineField({
+              name: 'parentSlugField',
+              title: 'Parent Slug Field',
+              type: 'string',
+              description:
+                'The field on the parent document used for its URL segment. Defaults to `slug.current`.',
+              placeholder: 'slug.current',
+              hidden: ({parent}) => parent?.mode !== 'parentSlug',
+            }),
+            defineField({
+              name: 'parentRelationship',
+              title: 'Reference Direction',
+              type: 'string',
+              description: 'How the parent and child documents are linked.',
+              options: {
+                list: [
+                  {title: 'Parent references this document', value: 'parentReferencesChild'},
+                  {title: 'This document references parent', value: 'childReferencesParent'},
+                ],
+                layout: 'radio',
+              },
+              initialValue: 'parentReferencesChild',
+              hidden: ({parent}) => parent?.mode !== 'parentSlug',
+            }),
+            defineField({
+              name: 'parentReferenceField',
+              title: 'Reference Field',
+              type: 'string',
+              description:
+                'The field name that holds the reference. E.g., `category` if your post has a `category` reference field.',
+              hidden: ({parent}) =>
+                parent?.mode !== 'parentSlug' ||
+                parent?.parentRelationship !== 'childReferencesParent',
+            }),
             defineField({
               name: 'pathExpression',
               title: 'Path Expression (GROQ)',
               type: 'text',
               description:
-                "A GROQ expression that resolves to the URL path segment for each document. Auto-generated from the settings above, or editable in 'Custom GROQ expression' mode.",
+                "A GROQ expression that resolves to the URL path segment for each document. Auto-generated from the settings above, or write your own in 'Custom GROQ expression' mode.",
+              components: {
+                input: PathExpressionField,
+              },
             }),
           ],
           preview: {

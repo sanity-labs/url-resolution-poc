@@ -4,6 +4,9 @@ export {routesPlugin} from './plugin.js'
 // ─── Schema ──────────────────────────────────────────────────────────
 export {routeConfig, routeMap} from './schema.js'
 
+// ─── Components ──────────────────────────────────────────────────────
+export {RouteEntryInput, DocumentTypePicker, PathExpressionField} from './components/index.js'
+
 // ─── Resolver ────────────────────────────────────────────────────────
 export {createRouteResolver} from './resolver.js'
 
