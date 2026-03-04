@@ -37,7 +37,7 @@ export interface RouteMapShard {
 
 export interface RouteMapEntry {
   _key?: string
-  doc: {_ref: string; _type: 'reference'; _weak: true}
+  docId: string
   path: string
 }
 

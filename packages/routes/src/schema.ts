@@ -155,17 +155,35 @@ export const routeMap = defineType({
       title: 'Entries',
       type: 'array',
       description: 'Resolved document-to-path mappings',
-      hidden: true,
       of: [
         defineArrayMember({
           type: 'object',
           fields: [
             defineField({
+              name: 'docId',
+              title: 'Document ID',
+              type: 'string',
+              description: 'The referenced document ID',
+            }),
+            defineField({
               name: 'path',
               title: 'Path',
               type: 'string',
+              description: 'Resolved URL path segment',
             }),
           ],
+          preview: {
+            select: {
+              docId: 'docId',
+              path: 'path',
+            },
+            prepare({ docId, path }) {
+              return {
+                title: path || '(no path)',
+                subtitle: docId || '',
+              }
+            },
+          },
         }),
       ],
     }),

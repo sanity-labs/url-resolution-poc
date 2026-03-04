@@ -31,7 +31,7 @@ export const handler = documentEventHandler(async ({ context, event }) => {
   // 4. Handle delete → remove entry by _key
   if (event.type === 'delete') {
     const shard = await client.fetch(
-      `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
+      `*[_id == $shardId][0]{ "entryKey": entries[docId == $docId][0]._key }`,
       { shardId, docId }
     )
     if (shard?.entryKey) {
@@ -58,7 +58,7 @@ export const handler = documentEventHandler(async ({ context, event }) => {
 
   // 6. Fetch existing entry key (if any) for clean replacement
   const shard = await client.fetch(
-    `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
+    `*[_id == $shardId][0]{ "entryKey": entries[docId == $docId][0]._key }`,
     { shardId, docId }
   )
 
@@ -83,7 +83,7 @@ export const handler = documentEventHandler(async ({ context, event }) => {
   // Insert new entry
   tx.patch(shardId, (p: any) => p
     .insert('after', 'entries[-1]', [{
-      doc: { _ref: docId, _type: 'reference', _weak: true },
+      docId: docId,
       path: result.path,
     }])
   )
