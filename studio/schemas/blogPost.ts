@@ -10,20 +10,25 @@ export const blogPost = defineType({
     defineField({
       name: 'body',
       type: 'array',
-      of: [{
-        type: 'block',
-        marks: {
-          annotations: [{
-            name: 'internalLink',
-            type: 'object',
-            fields: [{
-              name: 'reference',
-              type: 'reference',
-              to: [{ type: 'article' }, { type: 'blogPost' }],
+      of: [
+        {
+          type: 'block',
+          marks: {
+            annotations: [{
+              name: 'internalLink',
+              type: 'object',
+              fields: [{
+                name: 'reference',
+                type: 'reference',
+                to: [{ type: 'article' }, { type: 'blogPost' }],
+              }],
             }],
-          }],
+          },
         },
-      }],
+        {
+          type: 'code',
+        },
+      ],
     }),
   ],
 })

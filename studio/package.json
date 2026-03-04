@@ -9,6 +9,7 @@
   "dependencies": {
     "@sanity/blueprints": "^0.12.2",
     "@sanity/client": "^7.16.0",
+    "@sanity/code-input": "^7.0.8",
     "@sanity/functions": "^1.2.0",
     "@sanity/routes": "workspace:*",
     "@sanity/vision": "^5.13.0",

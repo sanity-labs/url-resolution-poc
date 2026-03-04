@@ -2,6 +2,7 @@ import { defineConfig } from 'sanity'
 import { structureTool } from 'sanity/structure'
 import { presentationTool } from 'sanity/presentation'
 import { defineLocations } from 'sanity/presentation'
+import { codeInput } from '@sanity/code-input'
 import { routesPlugin } from '@sanity/routes'
 import { schemaTypes } from './schemas'
 import { structure } from './structure'
@@ -17,6 +18,7 @@ export default defineConfig({
   plugins: [
     structureTool({ structure }),
     routesPlugin(),
+    codeInput(),
     presentationTool({
       previewUrl: {
         origin: process.env.SANITY_STUDIO_PREVIEW_ORIGIN || 'http://localhost:3000',

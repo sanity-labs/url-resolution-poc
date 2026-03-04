@@ -30,6 +30,13 @@ export default async function BlogPostPage({ params }: Props) {
         <PortableText
           value={(post as any).body}
           components={{
+            types: {
+              code: ({ value }: any) => (
+                <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: '1rem', borderRadius: '4px', overflow: 'auto' }}>
+                  <code>{value.code}</code>
+                </pre>
+              ),
+            },
             marks: {
               internalLink: ({ value, children }: any) => {
                 const url = urlMap.get(value.reference._ref)
