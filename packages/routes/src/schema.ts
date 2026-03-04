@@ -87,7 +87,14 @@ export const routeConfig = defineType({
               type: 'array',
               description:
                 'Which document types this route applies to. Documents of these types will have URLs generated using the base path and pattern below.',
-              of: [defineArrayMember({type: 'string'})],
+              of: [
+                defineArrayMember({
+                  type: 'string',
+                  components: {
+                    input: DocumentTypePicker,
+                  },
+                }),
+              ],
               validation: (rule) => rule.required().min(1),
             }),
             defineField({

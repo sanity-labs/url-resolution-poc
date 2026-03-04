@@ -30,8 +30,8 @@ export function PathExpressionField(props: StringInputProps) {
         text={showGroq ? 'Hide generated GROQ' : 'Show generated GROQ'}
       />
       {showGroq && (
-        <Card padding={3} radius={2} tone="transparent" border>
-          <Code language="groq" size={1}>
+        <Card padding={3} radius={2} tone="transparent" border style={{overflow: 'auto'}}>
+          <Code language="groq" size={1} style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}>
             {props.value || 'slug.current'}
           </Code>
         </Card>
