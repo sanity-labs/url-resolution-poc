@@ -18,6 +18,9 @@ export {createRouteResolver} from './resolver.js'
 // ─── Build ───────────────────────────────────────────────────────────
 export {buildRouteMap} from './build.js'
 
+// ─── Handler ─────────────────────────────────────────────────────────
+export {createRouteSyncHandler} from './handler.js'
+
 // ─── Blueprint ───────────────────────────────────────────────────────
 export {defineRouteSyncBlueprint} from './blueprint.js'
 export type {RouteSyncBlueprint} from './blueprint.js'

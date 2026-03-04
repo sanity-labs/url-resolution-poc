@@ -1,10 +1,6 @@
-import { defineDocumentFunction } from '@sanity/blueprints'
+import {defineDocumentFunction} from '@sanity/blueprints'
+import {defineRouteSyncBlueprint} from '@sanity/routes'
 
-export const routeSyncFunction = defineDocumentFunction({
-  name: 'route-sync',
-  event: {
-    on: ['create', 'update', 'delete'],
-    filter: `_type in ["blogPost", "article"]`,
-    projection: `{ _id, _type, slug }`,
-  },
-})
+export const routeSyncFunction = defineDocumentFunction(
+  defineRouteSyncBlueprint('web', {types: ['blogPost', 'article']}),
+)

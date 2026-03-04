@@ -51,6 +51,9 @@ importers:
       '@sanity/client':
         specifier: ^7.0.0
         version: 7.16.0(debug@4.4.3)
+      '@sanity/functions':
+        specifier: ^1.2.0
+        version: 1.2.0
       '@sanity/icons':
         specifier: ^3.0.0
         version: 3.7.4(react@19.2.4)

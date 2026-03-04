@@ -8,36 +8,58 @@ import type {BlueprintOptions} from './types.js'
  */
 export interface RouteSyncBlueprint {
   name: string
-  title: string
-  description: string
-  filter: string
-  includeDrafts: boolean
-  includeAllVersions: boolean
-  channel: string
-  types: string[]
+  event: {
+    on: readonly string[]
+    filter: string
+    projection: string
+  }
 }
 
 /**
  * Generates a blueprint configuration for a route sync function.
  *
- * This creates the configuration needed for a Sanity Function (via defineBlueprint
- * + defineDocumentFunction) that listens for changes to routable documents and
- * rebuilds the affected route map shards.
+ * Returns a config object compatible with `defineDocumentFunction()` from
+ * `@sanity/blueprints`. Use it directly in your blueprint definition.
  *
- * The filter watches for changes to slug or _type fields on the specified types.
+ * @param channel - The route config channel (e.g., 'web')
+ * @param options - Configuration with the document types to watch
+ * @returns A config object for `defineDocumentFunction()`
  *
  * @example
  * ```ts
- * const blueprint = defineRouteSyncBlueprint({
- *   channel: 'web',
- *   types: ['article', 'blogPost', 'page'],
- * })
- * // Use with Sanity Functions:
- * // defineBlueprint(blueprint)
+ * // studio/functions/route-sync/function.ts
+ * import { defineDocumentFunction } from '@sanity/blueprints'
+ * import { defineRouteSyncBlueprint } from '@sanity/routes'
+ *
+ * export const routeSyncFunction = defineDocumentFunction(
+ *   defineRouteSyncBlueprint('web', { types: ['article', 'blogPost'] })
+ * )
  * ```
  */
-export function defineRouteSyncBlueprint(options: BlueprintOptions): RouteSyncBlueprint {
-  const {channel, types} = options
+export function defineRouteSyncBlueprint(
+  channel: string,
+  options: {types: string[]},
+): RouteSyncBlueprint
+
+/**
+ * @deprecated Use `defineRouteSyncBlueprint(channel, options)` instead.
+ */
+export function defineRouteSyncBlueprint(options: BlueprintOptions): RouteSyncBlueprint
+
+export function defineRouteSyncBlueprint(
+  channelOrOptions: string | BlueprintOptions,
+  maybeOptions?: {types: string[]},
+): RouteSyncBlueprint {
+  let channel: string
+  let types: string[]
+
+  if (typeof channelOrOptions === 'string') {
+    channel = channelOrOptions
+    types = maybeOptions?.types ?? []
+  } else {
+    channel = channelOrOptions.channel
+    types = channelOrOptions.types
+  }
 
   if (!channel) {
     throw new Error('defineRouteSyncBlueprint requires a channel name')
@@ -47,19 +69,14 @@ export function defineRouteSyncBlueprint(options: BlueprintOptions): RouteSyncBl
     throw new Error('defineRouteSyncBlueprint requires at least one document type')
   }
 
-  // Build the GROQ filter for the document function
-  // Watches for changes to slug or _type on the specified document types
-  const typeList = types.map((t) => `"${t}"`).join(', ')
-  const filter = `_type in [${typeList}] && delta::changedAny(('slug', '_type'))`
+  const typeFilter = types.map((t) => `"${t}"`).join(', ')
 
   return {
-    name: `routes-sync-${channel}`,
-    title: `Route Sync: ${channel}`,
-    description: `Keeps route map shards in sync for the "${channel}" channel when content changes.`,
-    filter,
-    includeDrafts: false,
-    includeAllVersions: false,
-    channel,
-    types,
+    name: `route-sync-${channel}`,
+    event: {
+      on: ['create', 'update', 'delete'] as const,
+      filter: `_type in [${typeFilter}]`,
+      projection: `{ _id, _type, slug }`,
+    },
   }
 }
