@@ -2,6 +2,10 @@
 export {routesPlugin} from './plugin.js'
 export type {RoutesPluginOptions} from './plugin.js'
 
+// ─── Presentation ────────────────────────────────────────────────────
+export {routesPresentation} from './presentation.js'
+export type {RoutesPresentationOptions} from './presentation.js'
+
 // ─── Schema ──────────────────────────────────────────────────────────
 export {routeConfig, routeMap, createRouteMapType} from './schema.js'
 

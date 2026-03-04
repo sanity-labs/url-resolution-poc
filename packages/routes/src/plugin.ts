@@ -1,6 +1,9 @@
 import {definePlugin} from 'sanity'
 import {routeConfig, createRouteMapType} from './schema.js'
 
+export {routesPresentation} from './presentation.js'
+export type {RoutesPresentationOptions} from './presentation.js'
+
 /**
  * Options for the routes plugin.
  */
