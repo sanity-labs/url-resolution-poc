@@ -154,22 +154,16 @@ export const routeMap = defineType({
       name: 'entries',
       title: 'Entries',
       type: 'array',
-      description: 'Resolved document-to-path mappings',
+      description: 'Resolved document-to-path mappings. Each entry has {doc: {_ref}, path}.',
       of: [
         defineArrayMember({
           type: 'object',
           fields: [
             defineField({
-              name: 'doc',
-              title: 'Document Reference',
-              type: 'object',
-              fields: [
-                defineField({
-                  name: '_ref',
-                  title: 'Reference ID',
-                  type: 'string',
-                }),
-              ],
+              name: 'docRef',
+              title: 'Document ID',
+              type: 'string',
+              description: 'Referenced document ID (mirrors doc._ref)',
             }),
             defineField({
               name: 'path',
@@ -180,11 +174,13 @@ export const routeMap = defineType({
           ],
           preview: {
             select: {
+              docRef: 'docRef',
               path: 'path',
             },
-            prepare({path}) {
+            prepare({docRef, path}) {
               return {
                 title: path || '(no path)',
+                subtitle: docRef || '',
               }
             },
           },
