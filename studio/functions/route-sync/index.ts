@@ -26,7 +26,7 @@ export const handler = documentEventHandler(async ({ context, event }) => {
   }
 
   // 3. Determine shard ID
-  const shardId = `routes.web.${docType}`
+  const shardId = `routes-web-${docType}`
 
   // 4. Handle delete → remove entry
   if (event.type === 'delete') {

@@ -7,6 +7,9 @@
     "deploy": "sanity deploy"
   },
   "dependencies": {
+    "@sanity/blueprints": "^0.12.2",
+    "@sanity/client": "^7.16.0",
+    "@sanity/functions": "^1.2.0",
     "@sanity/routes": "workspace:*",
     "@sanity/vision": "^5.13.0",
     "react": "^19.2.4",
