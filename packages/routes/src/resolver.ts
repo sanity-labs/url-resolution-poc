@@ -206,7 +206,7 @@ export function createRouteResolver(
             const fnName = `routes::${type}Path`
             const id = `routes-${channel}-${type}`
             declarations.push(
-              `fn ${fnName}($id) = *[_id == "${id}"][0].entries[docId == $id][0].path;`,
+              `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
             )
           }
         }
@@ -288,7 +288,7 @@ export function createRouteResolver(
         const shard = await fetchShard(type)
         if (!shard) continue
 
-        const entry = shard.entries?.find((e) => e.docId === id)
+        const entry = shard.entries?.find((e) => e.doc._ref === id)
         if (entry) {
           return assembleUrl(resolvedBase, shard.basePath, entry.path)
         }
@@ -312,9 +312,9 @@ export function createRouteResolver(
         if (!shard) continue
 
         for (const entry of shard.entries || []) {
-          if (idSet.has(entry.docId)) {
-            result.set(entry.docId, assembleUrl(resolvedBase, shard.basePath, entry.path))
-            idSet.delete(entry.docId)
+          if (idSet.has(entry.doc._ref)) {
+            result.set(entry.doc._ref, assembleUrl(resolvedBase, shard.basePath, entry.path))
+            idSet.delete(entry.doc._ref)
           }
         }
 
@@ -328,7 +328,7 @@ export function createRouteResolver(
     async groqField(type: string): Promise<string> {
       // Tier 2 map lookup — returns path from pre-computed shard
       const id = shardId(type)
-      return `"path": *[_id == "${id}"][0].entries[docId == ^._id][0].path`
+      return `"path": *[_id == "${id}"][0].entries[doc._ref == ^._id][0].path`
     },
 
     async getRoutableTypes(): Promise<string[]> {
@@ -350,7 +350,7 @@ export function createRouteResolver(
 
       for (const shard of shards) {
         for (const entry of shard.entries || []) {
-          result.set(entry.docId, assembleUrl(resolvedBase, shard.basePath, entry.path))
+          result.set(entry.doc._ref, assembleUrl(resolvedBase, shard.basePath, entry.path))
         }
       }
 
@@ -391,7 +391,7 @@ export function createRouteResolver(
           .filter((d) => d.path)
           .map((d, i) => ({
             _key: `entry_${i}`,
-            docId: d._id,
+            doc: {_ref: d._id, _type: 'reference' as const, _weak: true as const},
             path: d.path,
           })),
       }
@@ -411,7 +411,7 @@ export function createRouteResolver(
           const fnName = `routes::${type}Path`
           const id = shardId(type)
           declarations.push(
-            `fn ${fnName}($id) = *[_id == "${id}"][0].entries[docId == $id][0].path;`,
+            `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
           )
         }
       }

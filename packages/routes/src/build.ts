@@ -64,7 +64,7 @@ export async function buildRouteMap(
           basePath: route.basePath,
           entries: validEntries.map((d, i) => ({
             _key: `entry_${i}`,
-            docId: d._id,
+            doc: {_ref: d._id, _type: 'reference' as const, _weak: true as const},
             path: d.path,
           })),
         }

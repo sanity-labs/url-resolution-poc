@@ -11,19 +11,23 @@ export const routeConfig = defineType({
   name: 'routes.config',
   title: 'Route Configuration',
   type: 'document',
+  description:
+    'Defines how document types map to URL paths on your site. Each route connects a document type to a base path and a pattern for generating slugs.',
   fields: [
     defineField({
       name: 'channel',
       title: 'Channel',
       type: 'string',
-      description: 'Unique channel identifier (e.g. "web", "app")',
+      description:
+        "A label to group routes by output target, such as 'web', 'mobile-app', or 'docs-site'. Documents can have different URLs per channel.",
       validation: (rule) => rule.required(),
     }),
     defineField({
       name: 'baseUrls',
       title: 'Base URLs',
       type: 'array',
-      description: 'Environment-specific base URLs for this channel',
+      description:
+        'The root URLs for each environment where this site is deployed. Add one entry per environment (production, staging, preview).',
       of: [
         defineArrayMember({
           type: 'object',
@@ -32,21 +36,24 @@ export const routeConfig = defineType({
               name: 'name',
               title: 'Environment Name',
               type: 'string',
-              description: 'e.g. "production", "staging", "development"',
+              description:
+                "A label for this environment, e.g., 'production', 'staging', or 'preview'.",
               validation: (rule) => rule.required(),
             }),
             defineField({
               name: 'url',
               title: 'Base URL',
               type: 'string',
-              description: 'e.g. "https://www.sanity.io" or "https://*.sanity.dev"',
+              description:
+                'The root URL for this environment, including the protocol. For example, `https://www.example.com`.',
               validation: (rule) => rule.required(),
             }),
             defineField({
               name: 'isDefault',
-              title: 'Is Default',
+              title: 'Default Environment',
               type: 'boolean',
-              description: 'Use this URL when no environment is specified',
+              description:
+                "When enabled, this environment's URL is used to build links in the Studio and previews. Only one environment should be marked as default.",
               initialValue: false,
             }),
           ],
@@ -72,7 +79,8 @@ export const routeConfig = defineType({
               name: 'types',
               title: 'Document Types',
               type: 'array',
-              description: 'Document types this route applies to',
+              description:
+                'Which document types this route applies to. Documents of these types will have URLs generated using the base path and pattern below.',
               of: [defineArrayMember({type: 'string'})],
               validation: (rule) => rule.required().min(1),
             }),
@@ -80,15 +88,16 @@ export const routeConfig = defineType({
               name: 'basePath',
               title: 'Base Path',
               type: 'string',
-              description: 'URL path prefix (e.g. "/blog", "/docs")',
+              description:
+                'The URL prefix prepended to every document\'s slug. A base path of `/blog` produces URLs like `/blog/my-post`.',
               validation: (rule) => rule.required(),
             }),
             defineField({
               name: 'pathExpression',
-              title: 'Path Expression',
+              title: 'Path Expression (GROQ)',
               type: 'text',
               description:
-                'GROQ expression for the path segment. Defaults to "slug.current". Can be a complex expression like: coalesce(*[_type == "category" && references(^._id)][0].slug.current + "/", "") + slug.current',
+                "A GROQ expression that resolves to the URL path segment for each document. Auto-generated from the settings above, or editable in 'Custom GROQ expression' mode.",
             }),
           ],
           preview: {
@@ -129,57 +138,61 @@ export const routeMap = defineType({
   name: 'routes.map',
   title: 'Route Map',
   type: 'document',
+  description:
+    'System-generated lookup table that maps documents to resolved URL paths. Built automatically \u2014 do not edit manually.',
   readOnly: true,
   fields: [
     defineField({
       name: 'channel',
       title: 'Channel',
       type: 'string',
-      description: 'The channel this shard belongs to',
+      description: 'The channel this route map was generated for.',
     }),
     defineField({
       name: 'documentType',
       title: 'Document Type',
       type: 'string',
-      description: 'The document type this shard covers',
+      description: 'The Sanity document type these route entries apply to.',
     }),
     defineField({
       name: 'basePath',
       title: 'Base Path',
       type: 'string',
-      description: 'URL path prefix for entries in this shard',
+      description: 'The URL prefix for all entries in this map.',
     }),
     defineField({
       name: 'entries',
-      title: 'Entries',
+      title: 'Route Entries',
       type: 'array',
-      description: 'Resolved document-to-path mappings',
+      description: 'Each entry maps one document to its resolved URL path.',
       of: [
         defineArrayMember({
           type: 'object',
           fields: [
             defineField({
-              name: 'docId',
-              title: 'Document ID',
-              type: 'string',
-              description: 'The referenced document ID',
+              name: 'doc',
+              title: 'Document',
+              type: 'reference',
+              weak: true,
+              to: [] as any,
+              description: 'A weak reference to the source document.',
             }),
             defineField({
               name: 'path',
-              title: 'Path',
+              title: 'Resolved Path',
               type: 'string',
-              description: 'Resolved URL path segment',
+              description:
+                'The URL path for this document, e.g., `getting-started/installation`.',
             }),
           ],
           preview: {
             select: {
-              docId: 'docId',
               path: 'path',
+              docTitle: 'doc.title', // won't resolve without to types, but that's ok
             },
-            prepare({ docId, path }) {
+            prepare({path}: {path?: string}) {
               return {
                 title: path || '(no path)',
-                subtitle: docId || '',
               }
             },
           },
