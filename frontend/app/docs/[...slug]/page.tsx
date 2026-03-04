@@ -1,6 +1,7 @@
 import { PortableText } from '@portabletext/react'
 import { sanityFetch } from '@/lib/live'
 import { resolver } from '@/lib/routes'
+import { CodeBlock } from '@/components/CodeBlock'
 
 interface Props {
   params: Promise<{ slug: string[] }>
@@ -37,9 +38,7 @@ export default async function ArticlePage({ params }: Props) {
           components={{
             types: {
               code: ({ value }: any) => (
-                <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: '1rem', borderRadius: '4px', overflow: 'auto' }}>
-                  <code>{value.code}</code>
-                </pre>
+                <CodeBlock code={value.code} language={value.language} />
               ),
             },
             marks: {
