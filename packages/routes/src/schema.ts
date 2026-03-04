@@ -154,36 +154,18 @@ export const routeMap = defineType({
       name: 'entries',
       title: 'Entries',
       type: 'array',
-      description: 'Resolved document-to-path mappings. Each entry has {doc: {_ref}, path}.',
+      description: 'Resolved document-to-path mappings',
+      hidden: true,
       of: [
         defineArrayMember({
           type: 'object',
           fields: [
             defineField({
-              name: 'docRef',
-              title: 'Document ID',
-              type: 'string',
-              description: 'Referenced document ID (mirrors doc._ref)',
-            }),
-            defineField({
               name: 'path',
               title: 'Path',
               type: 'string',
-              description: 'Resolved path segment for this document',
             }),
           ],
-          preview: {
-            select: {
-              docRef: 'docRef',
-              path: 'path',
-            },
-            prepare({docRef, path}) {
-              return {
-                title: path || '(no path)',
-                subtitle: docRef || '',
-              }
-            },
-          },
         }),
       ],
     }),
@@ -192,10 +174,13 @@ export const routeMap = defineType({
     select: {
       channel: 'channel',
       documentType: 'documentType',
+      entries: 'entries',
     },
-    prepare({channel, documentType}) {
+    prepare({channel, documentType, entries}) {
+      const count = Array.isArray(entries) ? entries.length : 0
       return {
         title: `Route Map: ${channel || '?'}/${documentType || '?'}`,
+        subtitle: `${count} entries`,
       }
     },
   },
