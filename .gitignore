@@ -5,3 +5,5 @@ dist/
 .env
 *.tsbuildinfo
 .sanity-project-id
+.sanity/
+.build/
