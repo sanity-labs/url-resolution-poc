@@ -11,7 +11,6 @@ export const routeConfig = defineType({
   name: 'routes.config',
   title: 'Route Configuration',
   type: 'document',
-  readOnly: true,
   fields: [
     defineField({
       name: 'channel',
