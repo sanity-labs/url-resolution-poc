@@ -1,4 +1,5 @@
 import { PortableText } from '@portabletext/react'
+import { draftMode } from 'next/headers'
 import { client } from '@/lib/sanity'
 import { resolver } from '@/lib/routes'
 
@@ -9,10 +10,14 @@ interface Props {
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params
   const slugPath = slug.join('/')
+  const draft = await draftMode()
+  const pageClient = draft.isEnabled
+    ? client.withConfig({ perspective: 'drafts', useCdn: false })
+    : client
 
   // Find the article by matching its resolved path
   // We need to find the article whose path matches the URL slug
-  const article = await client.fetch(
+  const article = await pageClient.fetch(
     `*[_type == "article" && slug.current == $lastSlug][0]{
       _id, title, body,
       "resolvedPath": coalesce(

@@ -11,6 +11,7 @@ export const routeConfig = defineType({
   name: 'routes.config',
   title: 'Route Configuration',
   type: 'document',
+  readOnly: true,
   fields: [
     defineField({
       name: 'channel',
@@ -114,6 +115,86 @@ export const routeConfig = defineType({
     prepare({channel}) {
       return {
         title: `Route Config: ${channel || 'untitled'}`,
+      }
+    },
+  },
+})
+
+/**
+ * Schema type definition for route map shard documents.
+ *
+ * Each document is a pre-computed shard mapping document IDs to their
+ * resolved URL paths for a specific channel + document type combination.
+ */
+export const routeMap = defineType({
+  name: 'routes.map',
+  title: 'Route Map',
+  type: 'document',
+  readOnly: true,
+  fields: [
+    defineField({
+      name: 'channel',
+      title: 'Channel',
+      type: 'string',
+      description: 'The channel this shard belongs to',
+    }),
+    defineField({
+      name: 'documentType',
+      title: 'Document Type',
+      type: 'string',
+      description: 'The document type this shard covers',
+    }),
+    defineField({
+      name: 'basePath',
+      title: 'Base Path',
+      type: 'string',
+      description: 'URL path prefix for entries in this shard',
+    }),
+    defineField({
+      name: 'entries',
+      title: 'Entries',
+      type: 'array',
+      description: 'Resolved document-to-path mappings',
+      of: [
+        defineArrayMember({
+          type: 'object',
+          fields: [
+            defineField({
+              name: 'doc',
+              title: 'Document',
+              type: 'reference',
+              weak: true,
+              to: [{type: 'document' as const}],
+            }),
+            defineField({
+              name: 'path',
+              title: 'Path',
+              type: 'string',
+              description: 'Resolved path segment for this document',
+            }),
+          ],
+          preview: {
+            select: {
+              path: 'path',
+            },
+            prepare({path}) {
+              return {
+                title: path || '(no path)',
+              }
+            },
+          },
+        }),
+      ],
+    }),
+  ],
+  preview: {
+    select: {
+      channel: 'channel',
+      documentType: 'documentType',
+    },
+    prepare({channel, documentType}) {
+      return {
+        title: `Route Map: ${channel || '?'}/${documentType || '?'}`,
       }
     },
   },

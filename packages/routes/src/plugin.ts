@@ -1,5 +1,5 @@
 import {definePlugin} from 'sanity'
-import {routeConfig} from './schema.js'
+import {routeConfig, routeMap} from './schema.js'
 
 /**
  * Sanity plugin that registers the route configuration schema type.
@@ -15,5 +15,5 @@ import {routeConfig} from './schema.js'
  */
 export const routesPlugin = definePlugin(() => ({
   name: '@sanity/routes',
-  schema: {types: [routeConfig]},
+  schema: {types: [routeConfig, routeMap]},
 }))

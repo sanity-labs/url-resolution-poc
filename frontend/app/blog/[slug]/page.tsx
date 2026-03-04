@@ -1,4 +1,5 @@
 import { PortableText } from '@portabletext/react'
+import { draftMode } from 'next/headers'
 import { client } from '@/lib/sanity'
 import { resolver } from '@/lib/routes'
 
@@ -8,8 +9,12 @@ interface Props {
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params
+  const draft = await draftMode()
+  const pageClient = draft.isEnabled
+    ? client.withConfig({ perspective: 'drafts', useCdn: false })
+    : client
 
-  const post = await client.fetch(
+  const post = await pageClient.fetch(
     `*[_type == "blogPost" && slug.current == $slug][0]{
       _id, title, body
     }`,

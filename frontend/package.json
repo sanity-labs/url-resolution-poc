@@ -11,6 +11,7 @@
     "@sanity/client": "^6",
     "@sanity/routes": "workspace:*",
     "next": "^15",
+    "next-sanity": "^9.8.58",
     "react": "^19",
     "react-dom": "^19"
   },

@@ -1,14 +1,20 @@
+import { draftMode } from 'next/headers'
 import { client } from '@/lib/sanity'
 import { realtimeResolver } from '@/lib/routes'
 
 export default async function Home() {
+  const draft = await draftMode()
+  const pageClient = draft.isEnabled
+    ? client.withConfig({ perspective: 'drafts', useCdn: false })
+    : client
+
   // Get the groqField for each type (realtime mode — live pathExpression)
   const articleField = await realtimeResolver.groqField('article')
   const blogField = await realtimeResolver.groqField('blogPost')
 
   const [articles, posts] = await Promise.all([
-    client.fetch(`*[_type == "article"] | order(title asc) { _id, title, ${articleField} }`),
-    client.fetch(`*[_type == "blogPost"] | order(title asc) { _id, title, ${blogField} }`),
+    pageClient.fetch(`*[_type == "article"] | order(title asc) { _id, title, ${articleField} }`),
+    pageClient.fetch(`*[_type == "blogPost"] | order(title asc) { _id, title, ${blogField} }`),
   ])
 
   return (

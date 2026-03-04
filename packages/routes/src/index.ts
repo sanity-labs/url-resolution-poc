@@ -2,7 +2,7 @@
 export {routesPlugin} from './plugin.js'
 
 // ─── Schema ──────────────────────────────────────────────────────────
-export {routeConfig} from './schema.js'
+export {routeConfig, routeMap} from './schema.js'
 
 // ─── Resolver ────────────────────────────────────────────────────────
 export {createRouteResolver} from './resolver.js'
