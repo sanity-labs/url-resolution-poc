@@ -26,13 +26,13 @@ export function PortableTextBody({ value, urlMap }: Props) {
       value={value}
       components={{
         types: {
-          code: ({ value }: any) => (
-            <CodeBlock code={value.code} language={value.language} />
+          code: ({ value }: { value: { code?: string; language?: string } }) => (
+            <CodeBlock code={value.code ?? ''} language={value.language} />
           ),
         },
         marks: {
-          internalLink: ({ value, children }: any) => {
-            const url = urlMap.get(value.reference._ref)
+          internalLink: ({ value, children }: { value?: { reference?: { _ref: string } }; children: React.ReactNode }) => {
+            const url = value?.reference ? urlMap.get(value.reference._ref) : undefined
             return url ? <a href={url}>{children}</a> : <span>{children}</span>
           },
         },

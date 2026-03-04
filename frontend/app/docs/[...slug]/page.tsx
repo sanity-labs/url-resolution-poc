@@ -1,7 +1,6 @@
-import { PortableText } from '@portabletext/react'
 import { sanityFetch } from '@/lib/live'
 import { resolver } from '@/lib/routes'
-import { CodeBlock } from '@/components/CodeBlock'
+import { PortableTextBody } from '@/components/PortableTextBody'
 import { ARTICLE_BY_SLUG_QUERY } from '@/lib/queries'
 
 interface Props {
@@ -26,24 +25,7 @@ export default async function ArticlePage({ params }: Props) {
     <article>
       <nav><a href="/">← Home</a></nav>
       <h1>{article.title}</h1>
-      {article.body && (
-        <PortableText
-          value={article.body}
-          components={{
-            types: {
-              code: ({ value }: { value: { code?: string; language?: string } }) => (
-                <CodeBlock code={value.code ?? ''} language={value.language} />
-              ),
-            },
-            marks: {
-              internalLink: ({ value, children }: { value?: { reference?: { _ref: string } }; children: React.ReactNode }) => {
-                const url = value?.reference ? urlMap.get(value.reference._ref) : undefined
-                return url ? <a href={url}>{children}</a> : <span>{children}</span>
-              },
-            },
-          }}
-        />
-      )}
+      <PortableTextBody value={article.body} urlMap={urlMap} />
     </article>
   )
 }
