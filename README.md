@@ -300,6 +300,28 @@ export default async function DocPage({ params }) {
 }
 ```
 
+### 11. Slug field URL preview
+
+Editors see the full resolved URL above the slug input — live, reactive, derived from the route config:
+
+```
+https://www.sanity.io/docs/guides/
+[  portable-text-links          ] [Generate]
+```
+
+```ts
+import { SlugWithUrlPreview } from '@sanity/routes'
+
+defineField({
+  name: 'slug',
+  type: 'slug',
+  options: { source: 'title' },
+  components: { input: SlugWithUrlPreview },
+})
+```
+
+The component reactively queries the route config. For `parentSlug` mode, it resolves the parent document's slug too. If the document type isn't routable, it renders the default slug input with no prefix.
+
 ---
 
 ## Route Config
