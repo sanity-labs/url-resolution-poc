@@ -87,7 +87,7 @@ export function createRouteResolver(
   // ─── Shard ID convention ─────────────────────────────────────────
 
   function shardId(docType: string): string {
-    return `routes.${channel}.${docType}`
+    return `routes-${channel}-${docType}`
   }
 
   // ─── Full URL assembly ───────────────────────────────────────────
@@ -204,7 +204,7 @@ export function createRouteResolver(
         for (const route of config.routes || []) {
           for (const type of route.types || []) {
             const fnName = `routes::${type}Path`
-            const id = `routes.${channel}.${type}`
+            const id = `routes-${channel}-${type}`
             declarations.push(
               `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
             )
@@ -357,8 +357,8 @@ export function createRouteResolver(
       if (result.size === 0 && shards.length === 0) {
         console.warn(
           '[@sanity/routes] preload() returned 0 entries. ' +
-          'Route map shards have private IDs (dots) and require an authenticated client. ' +
-          'Make sure your Sanity client has a read token configured.'
+          'No route map shards found. Make sure the route map has been built ' +
+          'for this channel with buildRouteMap().'
         )
       }
 

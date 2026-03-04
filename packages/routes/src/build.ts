@@ -57,7 +57,7 @@ export async function buildRouteMap(
 
         // Build the shard document
         const shard: RouteMapShard = {
-          _id: `routes.${channel}.${docType}`,
+          _id: `routes-${channel}-${docType}`,
           _type: 'routes.map',
           channel,
           documentType: docType,
