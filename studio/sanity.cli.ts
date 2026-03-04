@@ -5,4 +5,7 @@ export default defineCliConfig({
     projectId: 'bb8k7pej',
     dataset: 'production',
   },
+  typegen: {
+    generates: './sanity.types.ts',
+  },
 })

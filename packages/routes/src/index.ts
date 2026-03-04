@@ -1,8 +1,9 @@
 // ─── Plugin ──────────────────────────────────────────────────────────
 export {routesPlugin} from './plugin.js'
+export type {RoutesPluginOptions} from './plugin.js'
 
 // ─── Schema ──────────────────────────────────────────────────────────
-export {routeConfig, routeMap} from './schema.js'
+export {routeConfig, routeMap, createRouteMapType} from './schema.js'
 
 // ─── Components ──────────────────────────────────────────────────────
 export {RouteEntryInput, DocumentTypePicker, PathExpressionField} from './components/index.js'

@@ -17,7 +17,7 @@ export default defineConfig({
   },
   plugins: [
     structureTool({ structure }),
-    routesPlugin(),
+    routesPlugin({ types: ['article', 'blogPost'] }),
     codeInput(),
     presentationTool({
       previewUrl: {

@@ -210,89 +210,122 @@ export const routeConfig = defineType({
 })
 
 /**
- * Schema type definition for route map shard documents.
+ * Creates the route map schema type with the correct reference targets.
  *
  * Each document is a pre-computed shard mapping document IDs to their
  * resolved URL paths for a specific channel + document type combination.
+ *
+ * @param routableTypes - The document type names that can appear in route maps.
+ *   When provided, the `doc` field uses a proper weak reference with `to` set
+ *   to these types. When empty, falls back to a plain object field to avoid
+ *   Sanity's "reference type should define at least one accepted type" error.
  */
-export const routeMap = defineType({
-  name: 'routes.map',
-  title: 'Route Map',
-  type: 'document',
-  description:
-    'System-generated lookup table that maps documents to resolved URL paths. Built automatically \u2014 do not edit manually.',
-  readOnly: true,
-  fields: [
-    defineField({
-      name: 'channel',
-      title: 'Channel',
-      type: 'string',
-      description: 'The channel this route map was generated for.',
-    }),
-    defineField({
-      name: 'documentType',
-      title: 'Document Type',
-      type: 'string',
-      description: 'The Sanity document type these route entries apply to.',
-    }),
-    defineField({
-      name: 'basePath',
-      title: 'Base Path',
-      type: 'string',
-      description: 'The URL prefix for all entries in this map.',
-    }),
-    defineField({
-      name: 'entries',
-      title: 'Route Entries',
-      type: 'array',
-      description: 'Each entry maps one document to its resolved URL path.',
-      of: [
-        defineArrayMember({
+export function createRouteMapType(routableTypes?: string[]) {
+  const types = routableTypes?.filter(Boolean) ?? []
+
+  const docField =
+    types.length > 0
+      ? defineField({
+          name: 'doc',
+          title: 'Document',
+          type: 'reference',
+          weak: true,
+          to: types.map((t) => ({type: t})),
+          description: 'A weak reference to the source document.',
+        })
+      : defineField({
+          name: 'doc',
+          title: 'Document',
           type: 'object',
+          description:
+            'A weak reference to the source document. Configure routable types in routesPlugin() to enable full reference support.',
           fields: [
             defineField({
-              name: 'doc',
-              title: 'Document',
-              type: 'reference',
-              weak: true,
-              to: [] as any,
-              description: 'A weak reference to the source document.',
-            }),
-            defineField({
-              name: 'path',
-              title: 'Resolved Path',
+              name: 'refId',
+              title: 'Document ID',
               type: 'string',
-              description:
-                'The URL path for this document, e.g., `getting-started/installation`.',
+              description: 'The referenced document ID.',
             }),
           ],
-          preview: {
-            select: {
-              path: 'path',
-              docTitle: 'doc.title', // won't resolve without to types, but that's ok
+        })
+
+  return defineType({
+    name: 'routes.map',
+    title: 'Route Map',
+    type: 'document',
+    description:
+      'System-generated lookup table that maps documents to resolved URL paths. Built automatically \u2014 do not edit manually.',
+    readOnly: true,
+    fields: [
+      defineField({
+        name: 'channel',
+        title: 'Channel',
+        type: 'string',
+        description: 'The channel this route map was generated for.',
+      }),
+      defineField({
+        name: 'documentType',
+        title: 'Document Type',
+        type: 'string',
+        description: 'The Sanity document type these route entries apply to.',
+      }),
+      defineField({
+        name: 'basePath',
+        title: 'Base Path',
+        type: 'string',
+        description: 'The URL prefix for all entries in this map.',
+      }),
+      defineField({
+        name: 'entries',
+        title: 'Route Entries',
+        type: 'array',
+        description: 'Each entry maps one document to its resolved URL path.',
+        of: [
+          defineArrayMember({
+            type: 'object',
+            fields: [
+              docField,
+              defineField({
+                name: 'path',
+                title: 'Resolved Path',
+                type: 'string',
+                description:
+                  'The URL path for this document, e.g., `getting-started/installation`.',
+              }),
+            ],
+            preview: {
+              select: {
+                path: 'path',
+              },
+              prepare({path}: {path?: string}) {
+                return {
+                  title: path || '(no path)',
+                }
+              },
             },
-            prepare({path}: {path?: string}) {
-              return {
-                title: path || '(no path)',
-              }
-            },
-          },
-        }),
-      ],
-    }),
-  ],
-  preview: {
-    select: {
-      channel: 'channel',
-      documentType: 'documentType',
-      entries: 'entries',
+          }),
+        ],
+      }),
+    ],
+    preview: {
+      select: {
+        channel: 'channel',
+        documentType: 'documentType',
+        entries: 'entries',
+      },
+      prepare({channel, documentType, entries}) {
+        const count = Array.isArray(entries) ? entries.length : 0
+        return {
+          title: `Route Map: ${channel || '?'}/${documentType || '?'}`,
+          subtitle: `${count} entries`,
+        }
+      },
     },
-    prepare({channel, documentType, entries}) {
-      const count = Array.isArray(entries) ? entries.length : 0
-      return {
-        title: `Route Map: ${channel || '?'}/${documentType || '?'}`,
-        subtitle: `${count} entries`,
-      }
-    },
-  },
-})
+  })
+}
+
+/**
+ * @deprecated Use `createRouteMapType()` via `routesPlugin({ types: [...] })` instead.
+ * This static export uses the object fallback (no proper reference types).
+ */
+export const routeMap = createRouteMapType()
