@@ -12,11 +12,7 @@ export default async function ArticlePage({ params }: Props) {
 
   const { data: article } = await sanityFetch({
     query: `*[_type == "article" && slug.current == $lastSlug][0]{
-      _id, title, body,
-      "resolvedPath": coalesce(
-        *[_type == "docsNavSection" && references(^._id)][0].slug.current + "/" ,
-        ""
-      ) + slug.current
+      _id, title, body
     }`,
     params: { lastSlug: slug[slug.length - 1] },
   })
@@ -31,7 +27,6 @@ export default async function ArticlePage({ params }: Props) {
     <article>
       <nav><a href="/">← Home</a></nav>
       <h1>{(article as any).title}</h1>
-      <p><code>Resolved path: /docs/{(article as any).resolvedPath}</code></p>
       {(article as any).body && (
         <PortableText
           value={(article as any).body}
