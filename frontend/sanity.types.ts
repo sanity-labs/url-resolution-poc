@@ -37,7 +37,7 @@ export type DocsNavSection = {
 
 export type Slug = {
   _type: "slug";
-  current?: string;
+  current: string;
   source?: string;
 };
 
@@ -160,16 +160,16 @@ export type RoutesConfig = {
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
-  channel?: string;
+  channel: string;
   baseUrls?: Array<{
-    name?: string;
-    url?: string;
+    name: string;
+    url: string;
     isDefault?: boolean;
     _key: string;
   }>;
   routes?: Array<{
-    types?: Array<string>;
-    basePath?: string;
+    types: Array<string>;
+    basePath: string;
     mode?: "simpleSlug" | "parentSlug" | "custom";
     slugField?: string;
     parentType?: string;
@@ -202,9 +202,9 @@ export type SanityImagePalette = {
 
 export type SanityImageDimensions = {
   _type: "sanity.imageDimensions";
-  height?: number;
-  width?: number;
-  aspectRatio?: number;
+  height: number;
+  width: number;
+  aspectRatio: number;
 };
 
 export type SanityImageMetadata = {
@@ -221,18 +221,18 @@ export type SanityImageMetadata = {
 
 export type SanityImageHotspot = {
   _type: "sanity.imageHotspot";
-  x?: number;
-  y?: number;
-  height?: number;
-  width?: number;
+  x: number;
+  y: number;
+  height: number;
+  width: number;
 };
 
 export type SanityImageCrop = {
   _type: "sanity.imageCrop";
-  top?: number;
-  bottom?: number;
-  left?: number;
-  right?: number;
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
 };
 
 export type SanityFileAsset = {
@@ -246,14 +246,14 @@ export type SanityFileAsset = {
   title?: string;
   description?: string;
   altText?: string;
-  sha1hash?: string;
-  extension?: string;
-  mimeType?: string;
-  size?: number;
-  assetId?: string;
+  sha1hash: string;
+  extension: string;
+  mimeType: string;
+  size: number;
+  assetId: string;
   uploadId?: string;
-  path?: string;
-  url?: string;
+  path: string;
+  url: string;
   source?: SanityAssetSourceData;
 };
 
@@ -275,14 +275,14 @@ export type SanityImageAsset = {
   title?: string;
   description?: string;
   altText?: string;
-  sha1hash?: string;
-  extension?: string;
-  mimeType?: string;
-  size?: number;
-  assetId?: string;
+  sha1hash: string;
+  extension: string;
+  mimeType: string;
+  size: number;
+  assetId: string;
   uploadId?: string;
-  path?: string;
-  url?: string;
+  path: string;
+  url: string;
   metadata?: SanityImageMetadata;
   source?: SanityAssetSourceData;
 };
@@ -316,3 +316,90 @@ export type AllSanitySchemaTypes =
   | Geopoint;
 
 export declare const internalGroqTypeReferenceTo: unique symbol;
+
+// Source: ../frontend/lib/queries.ts
+// Variable: BLOG_POST_BY_SLUG_QUERY
+// Query: *[_type == "blogPost" && slug.current == $slug][0]{    _id, title, body  }
+export type BLOG_POST_BY_SLUG_QUERY_RESULT = {
+  _id: string;
+  title: string | null;
+  body: Array<
+    | ({
+        _key: string;
+      } & Code)
+    | {
+        children?: Array<{
+          marks?: Array<string>;
+          text?: string;
+          _type: "span";
+          _key: string;
+        }>;
+        style?:
+          | "blockquote"
+          | "h1"
+          | "h2"
+          | "h3"
+          | "h4"
+          | "h5"
+          | "h6"
+          | "normal";
+        listItem?: "bullet" | "number";
+        markDefs?: Array<{
+          reference?: ArticleReference | BlogPostReference;
+          _type: "internalLink";
+          _key: string;
+        }>;
+        level?: number;
+        _type: "block";
+        _key: string;
+      }
+  > | null;
+} | null;
+
+// Source: ../frontend/lib/queries.ts
+// Variable: ARTICLE_BY_SLUG_QUERY
+// Query: *[_type == "article" && slug.current == $lastSlug][0]{    _id, title, body  }
+export type ARTICLE_BY_SLUG_QUERY_RESULT = {
+  _id: string;
+  title: string | null;
+  body: Array<
+    | ({
+        _key: string;
+      } & Code)
+    | {
+        children?: Array<{
+          marks?: Array<string>;
+          text?: string;
+          _type: "span";
+          _key: string;
+        }>;
+        style?:
+          | "blockquote"
+          | "h1"
+          | "h2"
+          | "h3"
+          | "h4"
+          | "h5"
+          | "h6"
+          | "normal";
+        listItem?: "bullet" | "number";
+        markDefs?: Array<{
+          reference?: ArticleReference | BlogPostReference;
+          _type: "internalLink";
+          _key: string;
+        }>;
+        level?: number;
+        _type: "block";
+        _key: string;
+      }
+  > | null;
+} | null;
+
+// Query TypeMap
+import "@sanity/client";
+declare module "@sanity/client" {
+  interface SanityQueries {
+    '\n  *[_type == "blogPost" && slug.current == $slug][0]{\n    _id, title, body\n  }\n': BLOG_POST_BY_SLUG_QUERY_RESULT;
+    '\n  *[_type == "article" && slug.current == $lastSlug][0]{\n    _id, title, body\n  }\n': ARTICLE_BY_SLUG_QUERY_RESULT;
+  }
+}

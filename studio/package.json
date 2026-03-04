@@ -5,7 +5,7 @@
     "dev": "sanity dev",
     "build": "sanity build",
     "deploy": "sanity deploy",
-    "typegen": "sanity schema extract --path schema.json && sanity typegen generate"
+    "typegen": "sanity schema extract --enforce-required-fields --path schema.json && sanity typegen generate"
   },
   "dependencies": {
     "@sanity/blueprints": "^0.12.2",

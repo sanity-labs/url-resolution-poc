@@ -1,7 +1,10 @@
 import { sanityFetch } from '@/lib/live'
 import { realtimeResolver } from '@/lib/routes'
+import type { ArticleListItem, BlogPostListItem } from '@/lib/queries'
 
 export default async function Home() {
+  // groqField() generates GROQ at runtime based on route configuration.
+  // TypeGen can't analyze dynamic queries, so we use manual types instead.
   const articleField = await realtimeResolver.groqField('article')
   const blogField = await realtimeResolver.groqField('blogPost')
 
@@ -20,7 +23,7 @@ export default async function Home() {
       <section>
         <h2>Articles</h2>
         <ul>
-          {(articles as any[]).map((a: any) => (
+          {(articles as ArticleListItem[]).map((a) => (
             <li key={a._id}>
               <a href={`/docs/${a.path}`}>{a.title}</a>
               <code> → /docs/{a.path}</code>
@@ -32,7 +35,7 @@ export default async function Home() {
       <section>
         <h2>Blog Posts</h2>
         <ul>
-          {(posts as any[]).map((p: any) => (
+          {(posts as BlogPostListItem[]).map((p) => (
             <li key={p._id}>
               <a href={`/blog/${p.path}`}>{p.title}</a>
               <code> → /blog/{p.path}</code>
