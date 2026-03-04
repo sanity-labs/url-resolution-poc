@@ -551,6 +551,127 @@ When you add a new type to the route config, it automatically appears in the Pre
 
 ---
 
+## Sync Function
+
+The static route map (`routes.map`) is kept in sync by a Sanity Function that listens for document changes and updates the relevant shard. No cron jobs, no manual rebuilds — publish a document and the route map updates within seconds.
+
+### What it does
+
+When a routable document is created, updated, or deleted:
+
+1. **Reads the route config** to find the matching route entry for the document's type
+2. **Evaluates the `pathExpression`** GROQ against the document to resolve its URL path
+3. **Upserts the route map shard** using a single-transaction pattern:
+   - `createIfNotExists` — ensures the shard document exists
+   - `unset` by `_key` — removes the old entry if present
+   - `insert` — adds the new entry with the resolved path
+4. **On delete** — removes the entry from the shard
+
+The handler at `studio/functions/route-sync/index.ts`:
+
+```ts
+import { documentEventHandler } from '@sanity/functions'
+import { createClient } from '@sanity/client'
+
+export const handler = documentEventHandler(async ({ context, event }) => {
+  const client = createClient({
+    ...context.clientOptions,
+    apiVersion: '2024-01-01',
+    useCdn: false,
+  })
+
+  const docId = event.data._id
+  const docType = event.data._type
+
+  // Fetch route config and find the matching route entry
+  const config = await client.fetch(`*[_type == "routes.config" && channel == "web"][0]`)
+  const routeEntry = config.routes.find((r) => r.types.includes(docType))
+  const shardId = `routes-web-${docType}`
+
+  // Evaluate the pathExpression GROQ against the document
+  const pathExpression = routeEntry.pathExpression || 'slug.current'
+  const result = await client.fetch(
+    `*[_id == $docId][0]{ "path": ${pathExpression} }`,
+    { docId }
+  )
+
+  // Single-transaction upsert: createIfNotExists + unset old + insert new
+  const tx = client.transaction()
+    .createIfNotExists({
+      _id: shardId,
+      _type: 'routes.map',
+      channel: 'web',
+      documentType: docType,
+      basePath: routeEntry.basePath,
+      entries: [],
+    })
+
+  // ... unset old entry by _key, insert new entry
+  await tx.commit({ autoGenerateArrayKeys: true })
+})
+```
+
+### Blueprint configuration
+
+The Function is configured via a Sanity Blueprint at `studio/sanity.blueprint.ts`:
+
+```ts
+import { defineBlueprint } from '@sanity/blueprints'
+import { defineDocumentFunction } from '@sanity/blueprints'
+
+const routeSyncFunction = defineDocumentFunction({
+  name: 'route-sync',
+  event: {
+    on: ['create', 'update', 'delete'],
+    filter: `_type in ["blogPost", "article"]`,
+    projection: `{ _id, _type, slug }`,
+    // includeDrafts: false (default) — only fires on published changes
+    // includeAllVersions: false (default) — only published versions
+  },
+})
+
+export default defineBlueprint({
+  resources: [routeSyncFunction],
+})
+```
+
+Or use the package's `defineRouteSyncBlueprint()` to generate the config from your route config:
+
+```ts
+import { defineRouteSyncBlueprint } from '@sanity/routes/blueprint'
+
+const blueprint = defineRouteSyncBlueprint({
+  channel: 'web',
+  types: ['article', 'blogPost'],
+})
+```
+
+### Deploy and test
+
+```bash
+# Deploy the Function
+cd studio
+npx sanity blueprints deploy
+
+# Test with a specific document
+npx sanity functions test route-sync --document-id article-installation --event update
+
+# View logs
+npx sanity functions logs route-sync
+```
+
+### Design decisions
+
+**Recursion-safe.** Route map documents have type `routes.map` — they never match the Function's filter (`_type in ["blogPost", "article"]`). No infinite loops.
+
+**Draft-safe by default.** `includeDrafts: false` is the default — the Function only fires when documents are published, not on every keystroke in the Studio.
+
+**Single-transaction upsert.** The `createIfNotExists` + `unset` + `insert` pattern is atomic. No race conditions between concurrent publishes. `autoGenerateArrayKeys` handles key generation.
+
+**`_key`-based mutations.** Array entry removal uses `entries[_key=="..."]` instead of nested property filters like `entries[doc._ref=="..."]`. The latter causes parse errors in Sanity's mutation engine.
+
+---
+
 ## Frontend Integration
 
 ### Next.js with `defineLive`
