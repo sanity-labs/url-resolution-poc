@@ -1,5 +1,6 @@
-import { VisualEditing } from 'next-sanity'
+import { VisualEditing } from 'next-sanity/visual-editing'
 import { draftMode } from 'next/headers'
+import { SanityLive } from '@/lib/live'
 
 export const metadata = {
   title: 'URL Resolution POC',
@@ -7,12 +8,12 @@ export const metadata = {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const draft = await draftMode()
   return (
     <html lang="en">
       <body>
         {children}
-        {draft.isEnabled && <VisualEditing />}
+        <SanityLive />
+        {(await draftMode()).isEnabled && <VisualEditing />}
       </body>
     </html>
   )

@@ -7,16 +7,16 @@
     "start": "next start"
   },
   "dependencies": {
-    "@portabletext/react": "^3",
-    "@sanity/client": "^6",
+    "@portabletext/react": "^6.0.3",
+    "@sanity/client": "^7.16.0",
     "@sanity/routes": "workspace:*",
-    "next": "^15",
-    "next-sanity": "^9.8.58",
-    "react": "^19",
-    "react-dom": "^19"
+    "next": "^16.1.6",
+    "next-sanity": "^12.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@types/react": "^19",
+    "@types/react": "^19.2.14",
     "typescript": "^5"
   }
 }

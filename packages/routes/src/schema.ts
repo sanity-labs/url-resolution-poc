@@ -161,10 +161,15 @@ export const routeMap = defineType({
           fields: [
             defineField({
               name: 'doc',
-              title: 'Document',
-              type: 'reference',
-              weak: true,
-              to: [{type: 'document' as const}],
+              title: 'Document Reference',
+              type: 'object',
+              fields: [
+                defineField({
+                  name: '_ref',
+                  title: 'Reference ID',
+                  type: 'string',
+                }),
+              ],
             }),
             defineField({
               name: 'path',

@@ -8,14 +8,14 @@
   },
   "dependencies": {
     "@sanity/routes": "workspace:*",
-    "@sanity/vision": "^3",
-    "react": "^18",
-    "react-dom": "^18",
-    "sanity": "^3",
+    "@sanity/vision": "^5.13.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "sanity": "^5.13.0",
     "styled-components": "^6"
   },
   "devDependencies": {
-    "@types/react": "^18",
+    "@types/react": "^19.2.14",
     "typescript": "^5"
   }
 }

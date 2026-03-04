@@ -1,6 +1,5 @@
 import { PortableText } from '@portabletext/react'
-import { draftMode } from 'next/headers'
-import { client } from '@/lib/sanity'
+import { sanityFetch } from '@/lib/live'
 import { resolver } from '@/lib/routes'
 
 interface Props {
@@ -9,32 +8,27 @@ interface Props {
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params
-  const draft = await draftMode()
-  const pageClient = draft.isEnabled
-    ? client.withConfig({ perspective: 'drafts', useCdn: false })
-    : client
 
-  const post = await pageClient.fetch(
-    `*[_type == "blogPost" && slug.current == $slug][0]{
+  const { data: post } = await sanityFetch({
+    query: `*[_type == "blogPost" && slug.current == $slug][0]{
       _id, title, body
     }`,
-    { slug }
-  )
+    params: { slug },
+  })
 
   if (!post) {
     return <h1>Blog post not found</h1>
   }
 
-  // Pre-load all route map shards for synchronous PT link resolution
   const urlMap = await resolver.preload()
 
   return (
     <article>
       <nav><a href="/">← Home</a></nav>
-      <h1>{post.title}</h1>
-      {post.body && (
+      <h1>{(post as any).title}</h1>
+      {(post as any).body && (
         <PortableText
-          value={post.body}
+          value={(post as any).body}
           components={{
             marks: {
               internalLink: ({ value, children }: any) => {

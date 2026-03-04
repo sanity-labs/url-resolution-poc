@@ -1,21 +1,16 @@
-import { draftMode } from 'next/headers'
-import { client } from '@/lib/sanity'
+import { sanityFetch } from '@/lib/live'
 import { realtimeResolver } from '@/lib/routes'
 
 export default async function Home() {
-  const draft = await draftMode()
-  const pageClient = draft.isEnabled
-    ? client.withConfig({ perspective: 'drafts', useCdn: false })
-    : client
-
-  // Get the groqField for each type (realtime mode — live pathExpression)
   const articleField = await realtimeResolver.groqField('article')
   const blogField = await realtimeResolver.groqField('blogPost')
 
-  const [articles, posts] = await Promise.all([
-    pageClient.fetch(`*[_type == "article"] | order(title asc) { _id, title, ${articleField} }`),
-    pageClient.fetch(`*[_type == "blogPost"] | order(title asc) { _id, title, ${blogField} }`),
-  ])
+  const { data: articles } = await sanityFetch({
+    query: `*[_type == "article"] | order(title asc) { _id, title, ${articleField} }`,
+  })
+  const { data: posts } = await sanityFetch({
+    query: `*[_type == "blogPost"] | order(title asc) { _id, title, ${blogField} }`,
+  })
 
   return (
     <main>
@@ -25,7 +20,7 @@ export default async function Home() {
       <section>
         <h2>Articles</h2>
         <ul>
-          {articles.map((a: any) => (
+          {(articles as any[]).map((a: any) => (
             <li key={a._id}>
               <a href={`/docs/${a.path}`}>{a.title}</a>
               <code> → /docs/{a.path}</code>
@@ -37,7 +32,7 @@ export default async function Home() {
       <section>
         <h2>Blog Posts</h2>
         <ul>
-          {posts.map((p: any) => (
+          {(posts as any[]).map((p: any) => (
             <li key={p._id}>
               <a href={`/blog/${p.path}`}>{p.title}</a>
               <code> → /blog/{p.path}</code>

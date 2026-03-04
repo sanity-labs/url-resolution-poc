@@ -4,6 +4,7 @@ import { presentationTool } from 'sanity/presentation'
 import { defineLocations } from 'sanity/presentation'
 import { routesPlugin } from '@sanity/routes'
 import { schemaTypes } from './schemas'
+import { structure } from './structure'
 
 export default defineConfig({
   name: 'url-resolution-poc',
@@ -14,7 +15,7 @@ export default defineConfig({
     types: schemaTypes,
   },
   plugins: [
-    structureTool(),
+    structureTool({ structure }),
     routesPlugin(),
     presentationTool({
       previewUrl: {
