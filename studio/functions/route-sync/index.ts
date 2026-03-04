@@ -28,13 +28,19 @@ export const handler = documentEventHandler(async ({ context, event }) => {
   // 3. Determine shard ID
   const shardId = `routes-web-${docType}`
 
-  // 4. Handle delete → remove entry
+  // 4. Handle delete → remove entry by _key
   if (event.type === 'delete') {
-    await client
-      .patch(shardId)
-      .unset([`entries[doc._ref=="${docId}"]`])
-      .commit()
-    console.log(`Removed ${docId} from ${shardId}`)
+    const shard = await client.fetch(
+      `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
+      { shardId, docId }
+    )
+    if (shard?.entryKey) {
+      await client
+        .patch(shardId)
+        .unset([`entries[_key=="${shard.entryKey}"]`])
+        .commit()
+      console.log(`Removed ${docId} from ${shardId}`)
+    }
     return
   }
 
@@ -50,8 +56,14 @@ export const handler = documentEventHandler(async ({ context, event }) => {
     return
   }
 
-  // 6. Upsert: single-transaction createIfNotExists + unset + insert
-  await client.transaction()
+  // 6. Fetch existing entry key (if any) for clean replacement
+  const shard = await client.fetch(
+    `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
+    { shardId, docId }
+  )
+
+  // 7. Upsert: createIfNotExists + remove old entry by _key + insert new
+  const tx = client.transaction()
     .createIfNotExists({
       _id: shardId,
       _type: 'routes.map',
@@ -60,14 +72,23 @@ export const handler = documentEventHandler(async ({ context, event }) => {
       basePath: routeEntry.basePath,
       entries: [],
     })
-    .patch(shardId, (p: any) => p
-      .unset([`entries[doc._ref=="${docId}"]`])
-      .insert('after', 'entries[-1]', [{
-        doc: { _ref: docId, _type: 'reference', _weak: true },
-        path: result.path,
-      }])
+
+  // If existing entry found, remove it by _key (Studio-compatible path)
+  if (shard?.entryKey) {
+    tx.patch(shardId, (p: any) => p
+      .unset([`entries[_key=="${shard.entryKey}"]`])
     )
-    .commit({ autoGenerateArrayKeys: true })
+  }
+
+  // Insert new entry
+  tx.patch(shardId, (p: any) => p
+    .insert('after', 'entries[-1]', [{
+      doc: { _ref: docId, _type: 'reference', _weak: true },
+      path: result.path,
+    }])
+  )
+
+  await tx.commit({ autoGenerateArrayKeys: true })
 
   console.log(`Synced ${docId} → ${routeEntry.basePath}/${result.path}`)
 })
