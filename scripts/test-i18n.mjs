@@ -4,7 +4,7 @@ import {createRouteResolver} from '../packages/routes/dist/resolver.js'
 const client = createClient({
   projectId: 'bb8k7pej',
   dataset: 'production',
-  token: 'skI8L9tjvZjgixQ36DzFiN2z5097v2sboGF1vBNvEi9fmipPP828nz69HP5cAnfjuF3b4jMQk5xNaiLxW6TGbPdulrpuu8Td9hHfstqFYoSMNX1FopO4dYj7fo5EqXRrc5bqFSfS1Wb9mb1eCguMwm1EKYWUKgHWgFyR03gEBTEyEGq17Vw3',
+  token: process.env.SANITY_AUTH_TOKEN,
   apiVersion: '2024-01-01',
   useCdn: false,
 })
