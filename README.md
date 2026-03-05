@@ -822,6 +822,44 @@ url-resolution-poc/
 
 ---
 
+## Scale Considerations
+
+### Route map shard size
+
+Each route map entry is roughly 200 bytes (document reference + path string + key). A single Sanity document can hold up to 32MB, which means **~160,000 entries per shard**. Since shards are per-type (`routes-web-article`, `routes-web-blogPost`), most projects will never hit this limit.
+
+For extreme scale (100K+ documents of a single type), sub-shard by hash prefix: `routes-web-article-0` through `routes-web-article-f`. This isn't implemented in the POC but the architecture supports it.
+
+### Realtime vs static mode performance
+
+**Realtime mode** (`resolveById`) evaluates a GROQ query with a sub-query join per call. Measured at ~194ms for a document with a parent section lookup. Fine for single document resolution, Presentation tool, and MCP lookups. Not ideal for resolving thousands of URLs at once.
+
+**Static mode** (`preload`) loads all route map shards in a single GROQ query. The entire URL map is returned at once — one round-trip regardless of how many documents you have. Use this for:
+- Portable Text link resolution (many links per page)
+- Sitemap generation
+- Bulk redirect computation
+- Any context where you need more than ~10 URLs
+
+### `preload()` memory footprint
+
+`preload()` loads the entire route map into a `Map<string, string>`. For 10,000 documents, that's roughly 2MB in memory — negligible for a server-side render. For 100,000+ documents, consider type-scoped loading (not yet implemented).
+
+### Sync Function throughput
+
+The sync Function fires on each published document change. Each invocation:
+1. Fetches the route config (1 query)
+2. Evaluates the path expression (1 query)
+3. Finds the existing entry key (1 query)
+4. Commits the upsert transaction (1 mutation)
+
+That's 3 reads + 1 write per document change. For bulk publishing (e.g., importing 1,000 documents), use `buildRouteMap()` instead — it batches all documents in a single pass.
+
+### Parent fan-out
+
+When a parent document changes (e.g., a `docsNavSection` slug), the Function re-syncs all child documents. For a section with 50 articles, that's 50 sequential syncs. This is acceptable for editorial workflows (slug changes are rare) but would need batching for bulk operations.
+
+---
+
 ## Known Limitations
 
 This is a proof of concept. Here's what's not solved yet:
