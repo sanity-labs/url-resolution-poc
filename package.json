@@ -9,9 +9,10 @@
     "rebuild": "pnpm clean && pnpm build && pnpm build:functions",
     "build:functions": "cp packages/routes/dist/handler.js studio/functions/route-sync-web/_handler.js"
   },
+  "packageManager": "pnpm@10.10.0",
   "engines": {
     "node": ">=18",
-    "pnpm": ">=9"
+    "pnpm": ">=10"
   },
   "dependencies": {
     "@sanity/client": "^7.16.0"
