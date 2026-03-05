@@ -9,7 +9,7 @@ import type {BlueprintOptions} from './types.js'
 export interface RouteSyncBlueprint {
   name: string
   event: {
-    on: string[]
+    on: ['create', 'update', 'delete']
     filter: string
     projection: string
   }
