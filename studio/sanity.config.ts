@@ -20,7 +20,11 @@ export default defineConfig({
     codeInput(),
     presentationTool({
       previewUrl: {
-        origin: process.env.SANITY_STUDIO_PREVIEW_ORIGIN || 'http://localhost:3000',
+        origin:
+          process.env.SANITY_STUDIO_PREVIEW_ORIGIN ||
+          (process.env.SANITY_STUDIO_VERCEL_GIT_COMMIT_REF
+            ? `https://router-poc-nextjs-git-${process.env.SANITY_STUDIO_VERCEL_GIT_COMMIT_REF}.sanity.dev`
+            : 'http://localhost:3000'),
         preview: '/',
         previewMode: {
           enable: '/api/draft-mode/enable',
