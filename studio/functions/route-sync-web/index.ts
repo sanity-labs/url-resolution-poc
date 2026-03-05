@@ -22,18 +22,48 @@ export const handler = documentEventHandler(async ({context, event}: {context: a
     return
   }
 
-  // 2. Find the route entry for this document type
+  // 2. Check if this is a parent type change (e.g., docsNavSection slug changed)
+  //    If so, find all child route entries that depend on this parent and re-sync them
+  const parentRoutes = config.routes.filter(
+    (r: any) => r.mode === 'parentSlug' && r.parentType === docType,
+  )
+
+  if (parentRoutes.length > 0) {
+    console.log(
+      `[@sanity/routes] Parent type "${docType}" changed — re-syncing child types`,
+    )
+    for (const route of parentRoutes) {
+      await syncChildDocuments(client, config, route, channel, docId)
+    }
+    return
+  }
+
+  // 3. Find route entry for this document type (direct sync)
   const routeEntry = config.routes.find((r: any) => r.types.includes(docType))
   if (!routeEntry) {
     console.log(`[@sanity/routes] No route entry for type "${docType}" in channel "${channel}"`)
     return
   }
 
-  // 3. Determine shard ID
+  // 4. Sync this single document
+  await syncDocument(client, routeEntry, channel, docId, docType, event.type)
+})
+
+/**
+ * Sync a single document's route map entry.
+ */
+async function syncDocument(
+  client: any,
+  routeEntry: any,
+  channel: string,
+  docId: string,
+  docType: string,
+  eventType: string,
+) {
   const shardId = `routes-${channel}-${docType}`
 
-  // 4. Handle delete → remove entry by _key
-  if (event.type === 'delete') {
+  // Handle delete → remove entry by _key
+  if (eventType === 'delete') {
     const shard = await client.fetch(
       `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
       {shardId, docId},
@@ -48,7 +78,7 @@ export const handler = documentEventHandler(async ({context, event}: {context: a
     return
   }
 
-  // 5. Handle create/update → resolve path via pathExpression
+  // Resolve path via pathExpression
   const pathExpression = routeEntry.pathExpression || 'slug.current'
   const result = await client.fetch(
     `*[_id == $docId][0]{ "path": ${pathExpression} }`,
@@ -60,13 +90,13 @@ export const handler = documentEventHandler(async ({context, event}: {context: a
     return
   }
 
-  // 6. Fetch existing entry key (if any) for clean replacement
+  // Fetch existing entry key (if any) for clean replacement
   const shard = await client.fetch(
     `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
     {shardId, docId},
   )
 
-  // 7. Upsert: createIfNotExists + remove old entry by _key + insert new
+  // Upsert: createIfNotExists + remove old entry by _key + insert new
   const tx = client
     .transaction()
     .createIfNotExists({
@@ -78,12 +108,10 @@ export const handler = documentEventHandler(async ({context, event}: {context: a
       entries: [],
     })
 
-  // If existing entry found, remove it by _key
   if (shard?.entryKey) {
     tx.patch(shardId, (p: any) => p.unset([`entries[_key=="${shard.entryKey}"]`]))
   }
 
-  // Insert new entry with weak reference
   tx.patch(shardId, (p: any) =>
     p.insert('after', 'entries[-1]', [
       {
@@ -94,6 +122,39 @@ export const handler = documentEventHandler(async ({context, event}: {context: a
   )
 
   await tx.commit({autoGenerateArrayKeys: true})
-
   console.log(`[@sanity/routes] Synced ${docId} → ${routeEntry.basePath}/${result.path}`)
-})
+}
+
+/**
+ * When a parent document changes (e.g., docsNavSection slug),
+ * re-sync all child documents that depend on it.
+ */
+async function syncChildDocuments(
+  client: any,
+  config: any,
+  route: any,
+  channel: string,
+  parentDocId: string,
+) {
+  // Find all documents of the child types that reference this parent
+  const childTypes = route.types
+  const typeFilter = childTypes.map((t: string) => `"${t}"`).join(', ')
+
+  const children = await client.fetch(
+    `*[_type in [${typeFilter}] && references($parentId)]{ _id, _type }`,
+    {parentId: parentDocId},
+  )
+
+  if (!children || children.length === 0) {
+    console.log(`[@sanity/routes] No child documents reference parent ${parentDocId}`)
+    return
+  }
+
+  console.log(
+    `[@sanity/routes] Re-syncing ${children.length} child document(s) for parent ${parentDocId}`,
+  )
+
+  for (const child of children) {
+    await syncDocument(client, route, channel, child._id, child._type, 'update')
+  }
+}
