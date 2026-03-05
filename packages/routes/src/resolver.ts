@@ -15,10 +15,21 @@ const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
  * Two modes:
  * - **realtime** (default): Evaluates pathExpression GROQ live against Content Lake
  * - **static**: Reads from pre-computed route map shards
+ *
+ * Channel is optional. When omitted, the resolver will:
+ * 1. Look for a config with `isDefault: true`
+ * 2. If no default, use the only config if exactly one exists
+ * 3. Throw if multiple configs exist and none is marked as default
  */
 export function createRouteResolver(
   client: SanityClient,
-  channel: string,
+  channelOrOptions?: string | {
+    channel?: string
+    mode?: 'realtime' | 'static'
+    environment?: string
+    baseUrl?: string
+    cacheTtl?: number
+  },
   options?: {
     mode?: 'realtime' | 'static'
     environment?: string
@@ -26,7 +37,27 @@ export function createRouteResolver(
     cacheTtl?: number
   },
 ): RouteResolver {
-  const {mode = 'realtime', baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL} = options ?? {}
+  // Parse overloaded arguments
+  let channel: string | undefined
+  let resolvedOptions: {
+    mode?: 'realtime' | 'static'
+    environment?: string
+    baseUrl?: string
+    cacheTtl?: number
+  }
+
+  if (typeof channelOrOptions === 'string') {
+    channel = channelOrOptions
+    resolvedOptions = options ?? {}
+  } else if (typeof channelOrOptions === 'object' && channelOrOptions !== null) {
+    channel = channelOrOptions.channel
+    resolvedOptions = channelOrOptions
+  } else {
+    channel = undefined
+    resolvedOptions = options ?? {}
+  }
+
+  const {mode = 'realtime', baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL} = resolvedOptions
 
   // ─── Lazy config cache ───────────────────────────────────────────
   let configCache: RoutesConfig | null = null
@@ -38,13 +69,43 @@ export function createRouteResolver(
       return configCache
     }
 
-    const config = await client.fetch<RoutesConfig | null>(
-      `*[_type == "routes.config" && channel == $channel][0]`,
-      {channel},
-    )
+    let config: RoutesConfig | null = null
 
-    if (!config) {
-      throw new Error(`No route config found for channel "${channel}"`)
+    if (channel) {
+      // Explicit channel — use current query
+      config = await client.fetch<RoutesConfig | null>(
+        `*[_type == "routes.config" && channel == $channel][0]`,
+        {channel},
+      )
+
+      if (!config) {
+        throw new Error(`No route config found for channel "${channel}"`)
+      }
+    } else {
+      // No channel specified — try default, then single-config fallback
+      config = await client.fetch<RoutesConfig | null>(
+        `*[_type == "routes.config" && isDefault == true][0]`,
+      )
+
+      if (!config) {
+        // No default found — check if there's exactly one config
+        const allConfigs = await client.fetch<RoutesConfig[]>(
+          `*[_type == "routes.config"]`,
+        )
+
+        if (allConfigs.length === 1) {
+          config = allConfigs[0]
+        } else if (allConfigs.length === 0) {
+          throw new Error(
+            'No route config found. Create a routes.config document in your dataset.',
+          )
+        } else {
+          throw new Error(
+            `Multiple route configs found (${allConfigs.length}) but none is marked as default. ` +
+            'Either specify a channel explicitly, or set isDefault: true on one config.',
+          )
+        }
+      }
     }
 
     configCache = config
@@ -78,6 +139,41 @@ export function createRouteResolver(
     return ''
   }
 
+  // ─── Per-route base URL resolution ───────────────────────────────
+
+  /**
+   * Resolve the base URL for a specific route entry.
+   * Precedence: explicit option > route-level baseUrls (env match > isDefault) > channel-level baseUrls (env match > isDefault)
+   */
+  function resolveBaseUrlForRoute(config: RoutesConfig, route?: RouteEntry): string {
+    // 1. Explicit baseUrl option (highest priority)
+    if (baseUrl) return baseUrl
+
+    // 2. Route-level baseUrls (if present)
+    if (route?.baseUrls?.length) {
+      // Same logic as channel-level: environment match > isDefault
+      if (environment) {
+        const match = route.baseUrls.find((entry) => entry.name === environment)
+        if (match) return match.url
+      }
+      const defaultEntry = route.baseUrls.find((entry) => entry.isDefault)
+      if (defaultEntry) return defaultEntry.url
+      // If route has baseUrls but no match, fall through to channel-level
+    }
+
+    // 3. Channel-level baseUrls
+    if (environment && config.baseUrls) {
+      const match = config.baseUrls.find((entry) => entry.name === environment)
+      if (match) return match.url
+    }
+    if (config.baseUrls) {
+      const defaultEntry = config.baseUrls.find((entry) => entry.isDefault)
+      if (defaultEntry) return defaultEntry.url
+    }
+
+    return ''
+  }
+
   // ─── Route entry lookup ──────────────────────────────────────────
 
   function findRouteEntry(config: RoutesConfig, docType: string): RouteEntry | undefined {
@@ -86,8 +182,8 @@ export function createRouteResolver(
 
   // ─── Shard ID convention ─────────────────────────────────────────
 
-  function shardId(docType: string): string {
-    return `routes-${channel}-${docType}`
+  function shardId(resolvedChannel: string, docType: string): string {
+    return `routes-${resolvedChannel}-${docType}`
   }
 
   // ─── Full URL assembly ───────────────────────────────────────────
@@ -107,7 +203,6 @@ export function createRouteResolver(
     return {
       async resolveUrlById(id: string): Promise<string | null> {
         const config = await getConfig()
-        const resolvedBase = resolveBaseUrl(config)
 
         // Determine doc type — fetch if not known
         const docMeta = await client.fetch<{_type: string} | null>(
@@ -119,6 +214,7 @@ export function createRouteResolver(
         const route = findRouteEntry(config, docMeta._type)
         if (!route) return null
 
+        const resolvedBase = resolveBaseUrlForRoute(config, route)
         const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
 
         // Evaluate the pathExpression for this specific document
@@ -136,7 +232,6 @@ export function createRouteResolver(
         if (ids.length === 0) return result
 
         const config = await getConfig()
-        const resolvedBase = resolveBaseUrl(config)
 
         // Fetch types for all IDs in one query
         const docs = await client.fetch<Array<{_id: string; _type: string}>>(
@@ -157,6 +252,7 @@ export function createRouteResolver(
 
         // Evaluate pathExpression per route group
         for (const [route, groupDocs] of byRoute) {
+          const resolvedBase = resolveBaseUrlForRoute(config, route)
           const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
           const groupIds = groupDocs.map((d) => d._id)
 
@@ -179,7 +275,7 @@ export function createRouteResolver(
         const config = await getConfig()
         const route = findRouteEntry(config, type)
         if (!route) {
-          throw new Error(`No route entry found for type "${type}" in channel "${channel}"`)
+          throw new Error(`No route entry found for type "${type}" in channel "${config.channel}"`)
         }
         // Return a complete GROQ projection field assignment
         const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
@@ -204,7 +300,7 @@ export function createRouteResolver(
         for (const route of config.routes || []) {
           for (const type of route.types || []) {
             const fnName = `routes::${type}Path`
-            const id = `routes-${channel}-${type}`
+            const id = shardId(config.channel, type)
             declarations.push(
               `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
             )
@@ -223,18 +319,27 @@ export function createRouteResolver(
       },
 
       listen(): () => void {
+        // Use channel if provided, otherwise listen to all route configs
+        const query = channel
+          ? `*[_type == "routes.config" && channel == $channel]`
+          : `*[_type == "routes.config"]`
+        const params = channel ? {channel} : {}
+
         const subscription = client
-          .listen(
-            `*[_type == "routes.config" && channel == $channel]`,
-            {channel},
-            {includeResult: false},
-          )
+          .listen(query, params, {includeResult: false})
           .subscribe({
             next: () => invalidateCache(),
             error: (err) => console.error('[@sanity/routes] listen error:', err),
           })
 
         return () => subscription.unsubscribe()
+      },
+
+      resolveDocumentByUrl(): Promise<{id: string; type: string} | null> {
+        throw new Error(
+          'resolveDocumentByUrl() requires static mode. ' +
+          'Create the resolver with { mode: "static" } to use reverse resolution.',
+        )
       },
     }
   }
@@ -244,13 +349,13 @@ export function createRouteResolver(
   // In-memory shard cache for static mode
   let shardCache = new Map<string, RouteMapShard>()
 
-  async function fetchShard(docType: string): Promise<RouteMapShard | null> {
+  async function fetchShard(config: RoutesConfig, docType: string): Promise<RouteMapShard | null> {
     const cached = shardCache.get(docType)
     if (cached) return cached
 
     const shard = await client.fetch<RouteMapShard | null>(
       `*[_id == $shardId][0]`,
-      {shardId: shardId(docType)},
+      {shardId: shardId(config.channel, docType)},
     )
 
     if (shard) {
@@ -261,7 +366,7 @@ export function createRouteResolver(
 
   async function fetchAllShards(config: RoutesConfig): Promise<RouteMapShard[]> {
     const types = await staticResolver.getRoutableTypes()
-    const shardIds = types.map((t) => shardId(t))
+    const shardIds = types.map((t) => shardId(config.channel, t))
 
     const shards = await client.fetch<RouteMapShard[]>(
       `*[_id in $shardIds]`,
@@ -279,17 +384,18 @@ export function createRouteResolver(
   const staticResolver: RouteResolver = {
     async resolveUrlById(id: string): Promise<string | null> {
       const config = await getConfig()
-      const resolvedBase = resolveBaseUrl(config)
 
       // We need to check all shards since we don't know the doc type
       const types = await staticResolver.getRoutableTypes()
 
       for (const type of types) {
-        const shard = await fetchShard(type)
+        const shard = await fetchShard(config, type)
         if (!shard) continue
 
         const entry = shard.entries?.find((e) => e.doc._ref === id)
         if (entry) {
+          const route = findRouteEntry(config, type)
+          const resolvedBase = resolveBaseUrlForRoute(config, route)
           return assembleUrl(resolvedBase, shard.basePath, entry.path)
         }
       }
@@ -302,14 +408,16 @@ export function createRouteResolver(
       if (ids.length === 0) return result
 
       const config = await getConfig()
-      const resolvedBase = resolveBaseUrl(config)
       const idSet = new Set(ids)
 
       const types = await staticResolver.getRoutableTypes()
 
       for (const type of types) {
-        const shard = await fetchShard(type)
+        const shard = await fetchShard(config, type)
         if (!shard) continue
+
+        const route = findRouteEntry(config, type)
+        const resolvedBase = resolveBaseUrlForRoute(config, route)
 
         for (const entry of shard.entries || []) {
           if (!entry.doc?._ref) continue
@@ -327,8 +435,9 @@ export function createRouteResolver(
     },
 
     async groqField(type: string): Promise<string> {
+      const config = await getConfig()
       // Tier 2 map lookup — returns path from pre-computed shard
-      const id = shardId(type)
+      const id = shardId(config.channel, type)
       return `"path": *[_id == "${id}"][0].entries[doc._ref == ^._id][0].path`
     },
 
@@ -345,11 +454,15 @@ export function createRouteResolver(
 
     async preload(): Promise<Map<string, string>> {
       const config = await getConfig()
-      const resolvedBase = resolveBaseUrl(config)
       const shards = await fetchAllShards(config)
       const result = new Map<string, string>()
 
       for (const shard of shards) {
+        // Find the route entry for this shard's document type
+        const route = findRouteEntry(config, shard.documentType)
+        // Resolve base URL: route-level > channel-level
+        const resolvedBase = resolveBaseUrlForRoute(config, route)
+
         for (const entry of shard.entries || []) {
           if (!entry.doc?._ref) continue
           result.set(entry.doc._ref, assembleUrl(resolvedBase, shard.basePath, entry.path))
@@ -371,7 +484,7 @@ export function createRouteResolver(
       const config = await getConfig()
       const route = findRouteEntry(config, type)
       if (!route) {
-        throw new Error(`No route entry found for type "${type}" in channel "${channel}"`)
+        throw new Error(`No route entry found for type "${type}" in channel "${config.channel}"`)
       }
 
       const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
@@ -384,9 +497,9 @@ export function createRouteResolver(
 
       // Build the shard document
       const shard: RouteMapShard = {
-        _id: shardId(type),
+        _id: shardId(config.channel, type),
         _type: 'routes.map',
-        channel,
+        channel: config.channel,
         documentType: type,
         basePath: route.basePath,
         entries: docs
@@ -411,7 +524,7 @@ export function createRouteResolver(
       for (const route of config.routes || []) {
         for (const type of route.types || []) {
           const fnName = `routes::${type}Path`
-          const id = shardId(type)
+          const id = shardId(config.channel, type)
           declarations.push(
             `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
           )
@@ -423,6 +536,26 @@ export function createRouteResolver(
 
     listen(): () => void {
       throw new Error('listen() is only available in realtime mode')
+    },
+
+    async resolveDocumentByUrl(url: string): Promise<{id: string; type: string} | null> {
+      const config = await getConfig()
+      const shards = await fetchAllShards(config)
+
+      for (const shard of shards) {
+        const route = findRouteEntry(config, shard.documentType)
+        const resolvedBase = resolveBaseUrlForRoute(config, route)
+
+        for (const entry of shard.entries || []) {
+          if (!entry.doc?._ref) continue
+          const entryUrl = assembleUrl(resolvedBase, shard.basePath, entry.path)
+          if (entryUrl === url) {
+            return {id: entry.doc._ref, type: shard.documentType}
+          }
+        }
+      }
+
+      return null
     },
   }
 
