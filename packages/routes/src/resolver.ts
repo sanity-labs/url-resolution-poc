@@ -312,6 +312,7 @@ export function createRouteResolver(
         if (!shard) continue
 
         for (const entry of shard.entries || []) {
+          if (!entry.doc?._ref) continue
           if (idSet.has(entry.doc._ref)) {
             result.set(entry.doc._ref, assembleUrl(resolvedBase, shard.basePath, entry.path))
             idSet.delete(entry.doc._ref)
@@ -350,6 +351,7 @@ export function createRouteResolver(
 
       for (const shard of shards) {
         for (const entry of shard.entries || []) {
+          if (!entry.doc?._ref) continue
           result.set(entry.doc._ref, assembleUrl(resolvedBase, shard.basePath, entry.path))
         }
       }
