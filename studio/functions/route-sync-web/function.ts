@@ -1,10 +1,7 @@
 import {defineDocumentFunction} from '@sanity/blueprints'
+import {defineRouteSyncBlueprint} from '@sanity/routes'
 
-export const routeSyncFunction = defineDocumentFunction({
-  name: 'route-sync-web',
-  event: {
-    on: ['create', 'update', 'delete'],
-    filter: `_type in ["blogPost", "article", "docsNavSection"]`,
-    projection: `{ _id, _type, slug }`,
-  },
-})
+// @ts-expect-error — RouteSyncBlueprint is structurally compatible but TypeScript can't verify the tuple type
+export const routeSyncFunction = defineDocumentFunction(
+  defineRouteSyncBlueprint('web', {types: ['blogPost', 'article', 'docsNavSection']}),
+)

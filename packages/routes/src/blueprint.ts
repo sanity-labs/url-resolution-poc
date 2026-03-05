@@ -11,7 +11,7 @@ export interface RouteSyncBlueprint {
   event: {
     on: ['create', 'update', 'delete']
     filter: string
-    projection: string
+    projection: `{${string}}`
   }
 }
 
