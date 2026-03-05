@@ -6,6 +6,25 @@ Sanity documents don't know their own URLs. This package fixes that — one rout
 
 > **Status:** Proof of concept. The API is being validated against sanity.io's own content model before packaging for general use.
 
+## Table of Contents
+
+- [Why This Exists](#why-this-exists)
+- [Quick Start](#quick-start)
+- [The Problem](#the-problem)
+- [How It Works](#how-it-works)
+- [DX Highlights](#dx-highlights)
+- [Route Config](#route-config)
+- [Resolver API](#resolver-api)
+- [Studio Setup](#studio-setup)
+- [Sync Function](#sync-function)
+- [Frontend Integration](#frontend-integration)
+- [Project Structure](#project-structure)
+- [Scale Considerations](#scale-considerations)
+- [Known Limitations](#known-limitations)
+- [What This Enables](#what-this-enables)
+- [Sanity Project](#sanity-project)
+- [Monorepo Development Notes](#monorepo-development-notes)
+
 ## Why This Exists
 
 - **One source of truth for all URL resolution** — route config lives in the Content Lake as a document. Frontends, MCP, Presentation tool, sitemaps, and redirects all read from the same place. No more 5 independent resolvers that drift.
