@@ -298,11 +298,7 @@ const articles = await client.fetch(\`
       ptCode(
         'code1',
         'bash',
-        `pnpm add @sanity/routes
-# or
-npm install @sanity/routes
-# or
-yarn add @sanity/routes`
+        `pnpm add @sanity/routes`
       ),
 
       ptHeading('h2', 'Add the Studio Plugin'),

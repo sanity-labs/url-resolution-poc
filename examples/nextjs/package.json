@@ -5,7 +5,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typegen": "cd ../studio && npx sanity schema extract --enforce-required-fields && npx sanity typegen generate"
+    "typegen": "cd ../studio && pnpx sanity schema extract --enforce-required-fields && pnpx sanity typegen generate"
   },
   "dependencies": {
     "@portabletext/react": "^6.0.3",

@@ -658,7 +658,7 @@ The package owns all the complexity — route config lookup, pathExpression eval
 
 ```bash
 cd studio
-npx sanity blueprints deploy
+pnpx sanity blueprints deploy
 ```
 
 ### What it does under the hood
@@ -678,10 +678,10 @@ When a routable document is created, updated, or deleted, `createRouteSyncHandle
 
 ```bash
 # Test with a specific document
-npx sanity functions test route-sync-web --document-id article-installation --event update
+pnpx sanity functions test route-sync-web --document-id article-installation --event update
 
 # View logs
-npx sanity functions logs route-sync-web
+pnpx sanity functions logs route-sync-web
 ```
 
 ### Design decisions
@@ -1069,7 +1069,7 @@ export const handler = createRouteSyncHandler('web')
 
 **Workspace references.** The studio's `package.json` uses `"@sanity/routes": "workspace:*"`. In a real project, this would be a versioned npm dependency like `"@sanity/routes": "^1.0.0"`.
 
-In a real project, you'd `npm install @sanity/routes` and all the imports work without any build steps or vendoring.
+In a real project, you'd `pnpm add @sanity/routes` and all the imports work without any build steps or vendoring.
 
 ---
 
