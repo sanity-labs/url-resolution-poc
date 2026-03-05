@@ -65,37 +65,37 @@ Five independent systems solving the same problem. None of them aware of each ot
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     Content Lake                         │
-│                                                          │
+│                     Content Lake                        │
+│                                                         │
 │  ┌──────────────────┐    ┌─────────────────────────┐    │
-│  │  routes.config    │    │  routes.map (generated) │    │
-│  │  ─────────────    │    │  ─────────────────────  │    │
-│  │  channel: "web"   │    │  "article-xyz" → {      │    │
-│  │  baseUrls: [...]  │    │    path: "/docs/ai/...",│    │
-│  │  routes: [...]    │    │    _ref: "article-xyz"  │    │
-│  │                   │    │  }                      │    │
+│  │  routes.config   │    │  routes.map (generated) │    │
+│  │  ─────────────   │    │  ─────────────────────  │    │
+│  │  channel: "web"  │    │  "article-xyz" → {      │    │
+│  │  baseUrls: [...] │    │    path: "/docs/ai/...",│    │
+│  │  routes: [...]   │    │    _ref: "article-xyz"  │    │
+│  │                  │    │  }                      │    │
 │  └──────────────────┘    └─────────────────────────┘    │
-│           │                          │                   │
-└───────────┼──────────────────────────┼───────────────────┘
+│           │                          │                  │
+└───────────┼──────────────────────────┼──────────────────┘
             │                          │
             ▼                          ▼
    ┌─────────────────┐      ┌──────────────────┐
-   │  Realtime Mode   │      │   Static Mode    │
-   │  (primary)       │      │   (optimization) │
-   │                  │      │                  │
-   │  GROQ evaluation │      │  Pre-computed    │
-   │  per document    │      │  route map       │
-   │                  │      │                  │
-   │  • resolveById() │      │  • preload()     │
-   │  • groqField()   │      │  • sitemaps      │
-   │  • listen()      │      │  • PT links      │
-   └────────┬─────────┘      └────────┬─────────┘
-            │                          │
-            ▼                          ▼
+   │  Realtime Mode  │      │   Static Mode    │
+   │  (primary)      │      │   (optimization) │
+   │                 │      │                  │
+   │  GROQ evaluation│      │  Pre-computed    │
+   │  per document   │      │  route map       │
+   │                 │      │                  │
+   │  • resolveById()│      │  • preload()     │
+   │  • groqField()  │      │  • sitemaps      │
+   │  • listen()     │      │  • PT links      │
+   └────────┬────────┘      └────────┬─────────┘
+            │                        │
+            ▼                        ▼
    ┌──────────────────────────────────────────┐
-   │              Consumers                    │
-   │                                           │
-   │  Frontend  │  MCP  │  Presentation  │ CI  │
+   │              Consumers                   │
+   │                                          │
+   │  Frontend  │  MCP  │  Presentation  │ CI │
    └──────────────────────────────────────────┘
 ```
 
