@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "pnpm --parallel -r dev",
     "build": "pnpm -r build",
-    "build:routes": "pnpm --filter @sanity/routes build"
+    "build:routes": "pnpm --filter @sanity/routes build",
+    "clean": "rm -rf packages/routes/dist studio/.sanity frontend/.next frontend/.build && echo 'Cleaned build artifacts'",
+    "rebuild": "pnpm clean && pnpm build"
   },
   "engines": {
     "node": ">=18",
