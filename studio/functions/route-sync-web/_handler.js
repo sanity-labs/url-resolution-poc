@@ -59,6 +59,23 @@ export function createRouteSyncHandler(channel) {
                         await syncSingleDocument(client, route, channel, childId, childDoc._type);
                     }
                 }
+                // Also re-sync any children that were REMOVED from the parent
+                // (they're still in the route map but no longer in the parent's refs)
+                for (const childType of route.types) {
+                    const shardId = `routes-${channel}-${childType}`;
+                    const shard = await client.fetch(`*[_id == $shardId][0]{ entries }`, { shardId });
+                    if (shard?.entries) {
+                        for (const entry of shard.entries) {
+                            const entryRef = entry.doc?._ref;
+                            if (entryRef && !childIds.includes(entryRef)) {
+                                // This entry is in the shard but NOT in the parent's refs anymore
+                                // Re-sync it — the pathExpression will resolve without the parent prefix
+                                await syncSingleDocument(client, route, channel, entryRef, childType);
+                                console.log(`[@sanity/routes] Re-synced orphaned child ${entryRef}`);
+                            }
+                        }
+                    }
+                }
                 console.log(`[@sanity/routes] Re-synced ${childIds.length} child document(s) for parent ${docId}`);
             }
             return;
