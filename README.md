@@ -64,40 +64,49 @@ Five independent systems solving the same problem. None of them aware of each ot
 ## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     Content Lake                        │
-│                                                         │
-│  ┌──────────────────┐    ┌─────────────────────────┐    │
-│  │  routes.config   │    │  routes.map (generated) │    │
-│  │  ─────────────   │    │  ─────────────────────  │    │
-│  │  channel: "web"  │    │  "article-xyz" → {      │    │
-│  │  baseUrls: [...] │    │    path: "/docs/ai/...",│    │
-│  │  routes: [...]   │    │    _ref: "article-xyz"  │    │
-│  │                  │    │  }                      │    │
-│  └──────────────────┘    └─────────────────────────┘    │
-│           │                          │                  │
-└───────────┼──────────────────────────┼──────────────────┘
-            │                          │
-            ▼                          ▼
-   ┌─────────────────┐      ┌──────────────────┐
-   │  Realtime Mode  │      │   Static Mode    │
-   │  (primary)      │      │   (optimization) │
-   │                 │      │                  │
-   │  GROQ evaluation│      │  Pre-computed    │
-   │  per document   │      │  route map       │
-   │                 │      │                  │
-   │  • resolveById()│      │  • preload()     │
-   │  • groqField()  │      │  • sitemaps      │
-   │  • listen()     │      │  • PT links      │
-   └────────┬────────┘      └────────┬─────────┘
-            │                        │
-            ▼                        ▼
-   ┌──────────────────────────────────────────┐
-   │              Consumers                   │
-   │                                          │
-   │  Frontend  │  MCP  │  Presentation  │ CI │
-   └──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         Content Lake                              │
+│                                                                   │
+│  ┌──────────────────┐                 ┌─────────────────────┐    │
+│  │  routes.config    │                 │  routes.map         │    │
+│  │  ─────────────    │    Sync         │  ─────────────────  │    │
+│  │  channel: "web"   │    Function     │  article-xyz:       │    │
+│  │  baseUrls: [...]  │ ──────────────> │    path: "ai/..."   │    │
+│  │  routes: [...]    │  on publish/    │    _ref: "art-xyz"  │    │
+│  │                   │  unpublish      │                     │    │
+│  └──────────────────┘                 └─────────────────────┘    │
+│           │                                      │                │
+│           │  Routable documents                   │                │
+│           │  (article, blogPost)                  │                │
+│           │  trigger the Function                 │                │
+│           │  on publish                           │                │
+└───────────┼──────────────────────────────────────┼────────────────┘
+            │                                      │
+     reads config,                          reads pre-computed
+     evaluates GROQ                         map shards
+     per document                           in one query
+            │                                      │
+            ▼                                      ▼
+   ┌─────────────────┐                  ┌──────────────────┐
+   │  Realtime Mode   │                  │   Static Mode    │
+   │  (primary)       │                  │   (optimization) │
+   │                  │                  │                  │
+   │  resolveById()   │                  │  preload()       │
+   │  groqField()     │                  │  sitemaps        │
+   │  listen()        │                  │  PT links        │
+   └────────┬─────────┘                  └────────┬─────────┘
+            │                                      │
+            └──────────────┬───────────────────────┘
+                           │
+                           ▼
+            ┌──────────────────────────┐
+            │        Consumers          │
+            │                           │
+            │  Frontend  MCP  Studio CI │
+            └──────────────────────────┘
 ```
+
+> **The sync Function** watches for published document changes (create, update, delete) on routable types. When a slug changes, it evaluates the GROQ path expression from the route config and updates the corresponding route map shard. Setup is three lines — see [Sync Function](#sync-function).
 
 ### Two modes, one config
 
