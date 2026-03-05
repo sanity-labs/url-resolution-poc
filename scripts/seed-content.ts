@@ -250,7 +250,7 @@ const article = await client.fetch(\`
 import { createRouteResolver } from '@sanity/routes'
 
 const resolver = createRouteResolver(client, 'web')
-const url = await resolver.resolveById('article-123')
+const url = await resolver.resolveUrlById('article-123')
 // => "https://www.example.com/docs/guides/my-article"
 
 // Or embed resolution directly in GROQ queries:
@@ -390,7 +390,7 @@ await client.createOrReplace({
         `import { createRouteResolver } from '@sanity/routes'
 
 const resolver = createRouteResolver(client, 'web')
-const url = await resolver.resolveById('some-document-id')
+const url = await resolver.resolveUrlById('some-document-id')
 console.log(url) // => "https://www.example.com/blog/my-post"`
       ),
 
@@ -569,7 +569,7 @@ select(
 const resolver = createRouteResolver(client, 'web', { mode: 'realtime' })
 
 // Each call makes a GROQ query to the Content Lake
-const url = await resolver.resolveById('article-123')
+const url = await resolver.resolveUrlById('article-123')
 // => "https://www.example.com/docs/guides/my-article"
 
 // groqField() returns a GROQ fragment for embedding in queries
@@ -786,7 +786,7 @@ const staticResolver = createRouteResolver(client, 'web', {
 })`
       ),
 
-      ptHeading('h2', 'resolveById() / resolveByIds()'),
+      ptHeading('h2', 'resolveUrlById() / resolveUrlByIds()'),
       ptBlock(
         'b3',
         'Resolve one or more document IDs to full URLs. In realtime mode, each call evaluates the GROQ path expression against the Content Lake. In static mode, it reads from the pre-loaded route map.'
@@ -796,11 +796,11 @@ const staticResolver = createRouteResolver(client, 'web', {
         'code2',
         'typescript',
         `// Single document
-const url = await resolver.resolveById('article-123')
+const url = await resolver.resolveUrlById('article-123')
 // => "https://www.example.com/docs/guides/my-article"
 
 // Multiple documents
-const urls = await resolver.resolveByIds([
+const urls = await resolver.resolveUrlByIds([
   'article-123',
   'article-456',
   'blog-789',

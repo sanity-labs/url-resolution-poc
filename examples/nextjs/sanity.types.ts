@@ -317,7 +317,7 @@ export type AllSanitySchemaTypes =
 
 export declare const internalGroqTypeReferenceTo: unique symbol;
 
-// Source: ../frontend/lib/queries.ts
+// Source: ../examples/nextjs/lib/queries.ts
 // Variable: BLOG_POST_BY_SLUG_QUERY
 // Query: *[_type == "blogPost" && slug.current == $slug][0]{    _id, title, body  }
 export type BLOG_POST_BY_SLUG_QUERY_RESULT = {
@@ -356,7 +356,7 @@ export type BLOG_POST_BY_SLUG_QUERY_RESULT = {
   > | null;
 } | null;
 
-// Source: ../frontend/lib/queries.ts
+// Source: ../examples/nextjs/lib/queries.ts
 // Variable: ARTICLE_BY_SLUG_QUERY
 // Query: *[_type == "article" && slug.current == $lastSlug][0]{    _id, title, body  }
 export type ARTICLE_BY_SLUG_QUERY_RESULT = {

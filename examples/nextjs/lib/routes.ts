@@ -8,7 +8,7 @@ export const resolver = createRouteResolver(client, 'web', {
   environment: process.env.SANITY_ROUTES_ENV || 'production',
 })
 
-// Realtime mode for dynamic resolution (groqField, resolveById)
+// Realtime mode for dynamic resolution (groqField, resolveUrlById)
 export const realtimeResolver = createRouteResolver(client, 'web', {
   mode: 'realtime',
   environment: process.env.SANITY_ROUTES_ENV || 'production',

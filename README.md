@@ -79,7 +79,7 @@ const client = createClient({
 })
 const resolver = createRouteResolver(client, 'web')
 
-const url = await resolver.resolveById('article-agent-context')
+const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 ```
 
@@ -126,14 +126,14 @@ Multiple systems solving the same problem. None of them aware of each other. All
      per document                           in one query
             │                                      │
             ▼                                      ▼
-   ┌──────────────────┐                  ┌──────────────────┐
-   │  Realtime Mode   │                  │   Static Mode    │
-   │  (primary)       │                  │   (optimization) │
-   │                  │                  │                  │
-   │  resolveById()   │                  │  preload()       │
-   │  groqField()     │                  │  sitemaps        │
-   │  listen()        │                  │  PT links        │
-   └────────┬─────────┘                  └────────┬─────────┘
+   ┌─────────────────────┐                  ┌──────────────────┐
+   │  Realtime Mode      │                  │   Static Mode    │
+   │  (primary)          │                  │   (optimization) │
+   │                     │                  │                  │
+   │  resolveUrlById()   │                  │  preload()       │
+   │  groqField()        │                  │  sitemaps        │
+   │  listen()           │                  │  PT links        │
+   └──────────┬──────────┘                  └────────┬─────────┘
             │                                     │
             └──────────────┬──────────────────────┘
                            │
@@ -153,7 +153,7 @@ Multiple systems solving the same problem. None of them aware of each other. All
 
 ```ts
 // Realtime: evaluates the GROQ expression for this specific document
-const url = await resolver.resolveById('article-agent-context')
+const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 ```
 
@@ -300,7 +300,7 @@ Define base URLs for every environment. The resolver picks the right one.
 ```ts
 // Resolve for a specific environment
 const resolver = createRouteResolver(client, 'web', { environment: 'staging' })
-const url = await resolver.resolveById('article-agent-context')
+const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://staging.sanity.io/docs/ai/agent-context"
 ```
 
@@ -459,15 +459,15 @@ const resolver = createRouteResolver(client, 'web', {
 
 ---
 
-### `resolver.resolveById(id)`
+### `resolver.resolveUrlById(id)`
 
 Resolves a single document ID to its full URL. Uses realtime mode — evaluates the GROQ path expression against live data.
 
 ```ts
-const url = await resolver.resolveById('article-agent-context')
+const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 
-const url = await resolver.resolveById('blogPost-announcing-ai')
+const url = await resolver.resolveUrlById('blogPost-announcing-ai')
 // → "https://www.sanity.io/blog/announcing-ai"
 ```
 
@@ -475,12 +475,12 @@ Returns `null` if the document doesn't match any route.
 
 ---
 
-### `resolver.resolveByIds(ids)`
+### `resolver.resolveUrlByIds(ids)`
 
 Batch resolution. Resolves multiple document IDs in a single operation.
 
 ```ts
-const urls = await resolver.resolveByIds([
+const urls = await resolver.resolveUrlByIds([
   'article-agent-context',
   'article-getting-started',
   'blogPost-announcing-ai',
@@ -774,7 +774,7 @@ import { createRouteResolver } from '@sanity/routes/resolver'
 const resolver = createRouteResolver(client, 'web')
 
 async function getDocumentUrl(documentId: string) {
-  const url = await resolver.resolveById(documentId)
+  const url = await resolver.resolveUrlById(documentId)
   if (!url) throw new Error(`No route found for document ${documentId}`)
   return url
 }
@@ -809,15 +809,16 @@ url-resolution-poc/
 │   ├── sanity.blueprint.ts
 │   ├── schemas/                   # article, blogPost, docsNavSection
 │   └── functions/route-sync/      # Sync Function (keeps map updated)
-├── frontend/                      # Next.js 16 app (semantic HTML)
-│   ├── lib/
-│   │   ├── sanity.ts              # Sanity client
-│   │   ├── routes.ts              # Resolver instances
-│   │   └── live.ts                # defineLive setup
-│   ├── components/
-│   │   ├── PortableTextBody.tsx   # PT renderer with link resolution
-│   │   └── CodeBlock.tsx          # Syntax-highlighted code blocks
-│   └── app/                       # Pages
+├── examples/
+│   └── nextjs/                    # Next.js 16 app (semantic HTML)
+│       ├── lib/
+│       │   ├── sanity.ts              # Sanity client
+│       │   ├── routes.ts              # Resolver instances
+│       │   └── live.ts                # defineLive setup
+│       ├── components/
+│       │   ├── PortableTextBody.tsx   # PT renderer with link resolution
+│       │   └── CodeBlock.tsx          # Syntax-highlighted code blocks
+│       └── app/                       # Pages
 ├── scripts/                       # Seed content, build map
 ├── README.md
 └── package.json                   # pnpm workspaces monorepo
@@ -850,7 +851,7 @@ For extreme scale (100K+ documents of a single type), sub-shard by hash prefix: 
 
 ### Realtime vs static mode performance
 
-**Realtime mode** (`resolveById`) evaluates a GROQ query with a sub-query join per call. Measured at ~194ms for a document with a parent section lookup. Fine for single document resolution, Presentation tool, and MCP lookups. Not ideal for resolving thousands of URLs at once.
+**Realtime mode** (`resolveUrlById`) evaluates a GROQ query with a sub-query join per call. Measured at ~194ms for a document with a parent section lookup. Fine for single document resolution, Presentation tool, and MCP lookups. Not ideal for resolving thousands of URLs at once.
 
 **Static mode** (`preload`) loads all route map shards in a single GROQ query. The entire URL map is returned at once — one round-trip regardless of how many documents you have. Use this for:
 - Portable Text link resolution (many links per page)
@@ -979,7 +980,7 @@ import { createRouteResolver } from '@sanity/routes/resolver'
 const resolver = createRouteResolver(client, 'web')
 
 async function getDocumentUrl(documentId: string) {
-  const url = await resolver.resolveById(documentId)
+  const url = await resolver.resolveUrlById(documentId)
   if (!url) throw new Error(`No route found for ${documentId}`)
   return url
 }
@@ -1014,10 +1015,10 @@ Same document, different URLs per channel. Each channel gets its own route confi
 const webResolver = createRouteResolver(client, 'web')
 const mobileResolver = createRouteResolver(client, 'mobile')
 
-await webResolver.resolveById('article-installation')
+await webResolver.resolveUrlById('article-installation')
 // → "https://www.sanity.io/docs/getting-started/installation"
 
-await mobileResolver.resolveById('article-installation')
+await mobileResolver.resolveUrlById('article-installation')
 // → "https://m.sanity.io/m/docs/getting-started/installation"
 ```
 

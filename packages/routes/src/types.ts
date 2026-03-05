@@ -45,10 +45,10 @@ export interface RouteMapEntry {
 
 export interface RouteResolver {
   /** Resolve a single document ID to its full URL */
-  resolveById(id: string): Promise<string | null>
+  resolveUrlById(id: string): Promise<string | null>
 
   /** Resolve multiple document IDs to their full URLs */
-  resolveByIds(ids: string[]): Promise<Map<string, string>>
+  resolveUrlByIds(ids: string[]): Promise<Map<string, string>>
 
   /**
    * Returns a GROQ expression for the path portion of a route.

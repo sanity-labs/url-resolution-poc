@@ -105,7 +105,7 @@ export function createRouteResolver(
 
   if (mode === 'realtime') {
     return {
-      async resolveById(id: string): Promise<string | null> {
+      async resolveUrlById(id: string): Promise<string | null> {
         const config = await getConfig()
         const resolvedBase = resolveBaseUrl(config)
 
@@ -131,7 +131,7 @@ export function createRouteResolver(
         return assembleUrl(resolvedBase, route.basePath, path)
       },
 
-      async resolveByIds(ids: string[]): Promise<Map<string, string>> {
+      async resolveUrlByIds(ids: string[]): Promise<Map<string, string>> {
         const result = new Map<string, string>()
         if (ids.length === 0) return result
 
@@ -277,7 +277,7 @@ export function createRouteResolver(
   }
 
   const staticResolver: RouteResolver = {
-    async resolveById(id: string): Promise<string | null> {
+    async resolveUrlById(id: string): Promise<string | null> {
       const config = await getConfig()
       const resolvedBase = resolveBaseUrl(config)
 
@@ -297,7 +297,7 @@ export function createRouteResolver(
       return null
     },
 
-    async resolveByIds(ids: string[]): Promise<Map<string, string>> {
+    async resolveUrlByIds(ids: string[]): Promise<Map<string, string>> {
       const result = new Map<string, string>()
       if (ids.length === 0) return result
 

@@ -8,9 +8,9 @@ export default defineCliConfig({
   typegen: {
     path: [
       './**/*.{ts,tsx}',
-      '../frontend/**/*.{ts,tsx}',
+      '../examples/nextjs/**/*.{ts,tsx}',
     ],
     schema: 'schema.json',
-    generates: '../frontend/sanity.types.ts',
+    generates: '../examples/nextjs/sanity.types.ts',
   },
 })

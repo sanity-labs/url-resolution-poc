@@ -12,7 +12,7 @@ importers:
         specifier: ^7.16.0
         version: 7.16.0(debug@4.4.3)
 
-  frontend:
+  examples/nextjs:
     dependencies:
       '@portabletext/react':
         specifier: ^6.0.3
@@ -22,7 +22,7 @@ importers:
         version: 7.16.0(debug@4.4.3)
       '@sanity/routes':
         specifier: workspace:*
-        version: link:../packages/routes
+        version: link:../../packages/routes
       next:
         specifier: ^16.1.6
         version: 16.1.6(@babel/core@7.29.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
