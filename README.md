@@ -825,9 +825,6 @@ url-resolution-poc/
 
 This is a proof of concept. Here's what's not solved yet:
 
-### Parent fan-out
-When a parent document (e.g., `docsNavSection`) changes its slug, all child documents' URLs change. The current implementation doesn't automatically detect and propagate this. The route map needs to be regenerated.
-
 ### Static mode filter
 The static route map (`routes.map`) doesn't yet support filtering by document type or path prefix. `preload()` loads the entire map. For very large sites (10k+ documents), this may need pagination or type-scoped loading.
 
@@ -991,6 +988,30 @@ const client = createClient({
   apiVersion: '2024-01-01',
 })
 ```
+
+---
+
+## Monorepo Development Notes
+
+This POC is a pnpm monorepo where `@sanity/routes` is a local package. The README examples show the ideal DX — importing from `@sanity/routes` as a published npm package. The monorepo setup has some workarounds that wouldn't exist in a real project:
+
+**Function handler vendoring.** The Sanity Functions bundler can't resolve pnpm workspace symlinks. The sync Function uses a vendored copy of the handler (`_handler.js`) built from the package source. In a real project with `@sanity/routes` installed from npm, the handler is a clean two-liner:
+
+```ts
+// Ideal DX (published package)
+import { createRouteSyncHandler } from '@sanity/routes'
+export const handler = createRouteSyncHandler('web')
+
+// Monorepo workaround (this repo)
+import { createRouteSyncHandler } from './_handler.js'
+export const handler = createRouteSyncHandler('web')
+```
+
+**Build before test/deploy.** The package must be built (`pnpm build`) before running `sanity functions test` or `sanity blueprints deploy`, since the Function references the compiled output. The `pnpm rebuild` script handles this — it cleans, builds the package, and copies the handler into the Function directory.
+
+**Workspace references.** The studio's `package.json` uses `"@sanity/routes": "workspace:*"`. In a real project, this would be a versioned npm dependency like `"@sanity/routes": "^1.0.0"`.
+
+In a real project, you'd `npm install @sanity/routes` and all the imports work without any build steps or vendoring.
 
 ---
 
