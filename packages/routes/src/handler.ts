@@ -36,7 +36,34 @@ export function createRouteSyncHandler(channel: string) {
       return
     }
 
-    // 2. Find the route entry for this document type
+    // 2. Check if this is a parent type change (e.g., docsNavSection slug changed)
+    //    If so, find all child documents that depend on this parent and re-sync them
+    const parentRoutes = config.routes.filter(
+      (r: any) => r.mode === 'parentSlug' && r.parentType === docType,
+    )
+
+    if (parentRoutes.length > 0) {
+      console.log(
+        `[@sanity/routes] Parent type "${docType}" changed — re-syncing child types`,
+      )
+      for (const route of parentRoutes) {
+        const childTypes = route.types
+        const typeFilter = childTypes.map((t: string) => `"${t}"`).join(', ')
+        const children = await client.fetch(
+          `*[_type in [${typeFilter}] && references($parentId)]{ _id, _type }`,
+          {parentId: docId},
+        )
+        for (const child of children || []) {
+          await syncSingleDocument(client, route, channel, child._id, child._type)
+        }
+        console.log(
+          `[@sanity/routes] Re-synced ${(children || []).length} child document(s) for parent ${docId}`,
+        )
+      }
+      return
+    }
+
+    // 3. Find the route entry for this document type (direct sync)
     const routeEntry = config.routes.find((r: any) => r.types.includes(docType))
     if (!routeEntry) {
       console.log(
@@ -45,72 +72,80 @@ export function createRouteSyncHandler(channel: string) {
       return
     }
 
-    // 3. Determine shard ID
-    const shardId = `routes-${channel}-${docType}`
-
     // 4. Handle delete → remove entry by _key
     if (event.type === 'delete') {
       const shard = await client.fetch(
         `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
-        {shardId, docId},
+        {shardId: `routes-${channel}-${docType}`, docId},
       )
       if (shard?.entryKey) {
         await client
-          .patch(shardId)
+          .patch(`routes-${channel}-${docType}`)
           .unset([`entries[_key=="${shard.entryKey}"]`])
           .commit()
-        console.log(`[@sanity/routes] Removed ${docId} from ${shardId}`)
+        console.log(`[@sanity/routes] Removed ${docId} from routes-${channel}-${docType}`)
       }
       return
     }
 
-    // 5. Handle create/update → resolve path via pathExpression
-    const pathExpression = routeEntry.pathExpression || 'slug.current'
-    const result = await client.fetch(
-      `*[_id == $docId][0]{ "path": ${pathExpression} }`,
-      {docId},
-    )
-
-    if (!result?.path) {
-      console.error(`[@sanity/routes] Could not resolve path for ${docId}`)
-      return
-    }
-
-    // 6. Fetch existing entry key (if any) for clean replacement
-    const shard = await client.fetch(
-      `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
-      {shardId, docId},
-    )
-
-    // 7. Upsert: createIfNotExists + remove old entry by _key + insert new
-    const tx = client
-      .transaction()
-      .createIfNotExists({
-        _id: shardId,
-        _type: 'routes.map',
-        channel,
-        documentType: docType,
-        basePath: routeEntry.basePath,
-        entries: [],
-      })
-
-    // If existing entry found, remove it by _key
-    if (shard?.entryKey) {
-      tx.patch(shardId, (p: any) => p.unset([`entries[_key=="${shard.entryKey}"]`]))
-    }
-
-    // Insert new entry
-    tx.patch(shardId, (p: any) =>
-      p.insert('after', 'entries[-1]', [
-        {
-          doc: {_ref: docId, _type: 'reference', _weak: true},
-          path: result.path,
-        },
-      ]),
-    )
-
-    await tx.commit({autoGenerateArrayKeys: true})
-
-    console.log(`[@sanity/routes] Synced ${docId} → ${routeEntry.basePath}/${result.path}`)
+    // 5. Sync this document
+    await syncSingleDocument(client, routeEntry, channel, docId, docType)
   })
+}
+
+/**
+ * Sync a single document's route map entry.
+ * @internal
+ */
+async function syncSingleDocument(
+  client: any,
+  routeEntry: any,
+  channel: string,
+  docId: string,
+  docType: string,
+) {
+  const shardId = `routes-${channel}-${docType}`
+  const pathExpression = routeEntry.pathExpression || 'slug.current'
+
+  const result = await client.fetch(
+    `*[_id == $docId][0]{ "path": ${pathExpression} }`,
+    {docId},
+  )
+
+  if (!result?.path) {
+    console.error(`[@sanity/routes] Could not resolve path for ${docId}`)
+    return
+  }
+
+  const shard = await client.fetch(
+    `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
+    {shardId, docId},
+  )
+
+  const tx = client
+    .transaction()
+    .createIfNotExists({
+      _id: shardId,
+      _type: 'routes.map',
+      channel,
+      documentType: docType,
+      basePath: routeEntry.basePath,
+      entries: [],
+    })
+
+  if (shard?.entryKey) {
+    tx.patch(shardId, (p: any) => p.unset([`entries[_key=="${shard.entryKey}"]`]))
+  }
+
+  tx.patch(shardId, (p: any) =>
+    p.insert('after', 'entries[-1]', [
+      {
+        doc: {_ref: docId, _type: 'reference', _weak: true},
+        path: result.path,
+      },
+    ]),
+  )
+
+  await tx.commit({autoGenerateArrayKeys: true})
+  console.log(`[@sanity/routes] Synced ${docId} → ${routeEntry.basePath}/${result.path}`)
 }

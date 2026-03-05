@@ -606,26 +606,36 @@ When you add a new type to the route config, it automatically appears in the Pre
 
 The static route map is kept in sync by a Sanity Function. Publish a document → route map updates within seconds. No cron jobs, no manual rebuilds.
 
-### Setup — four lines, two files
+### Setup — 3 files, ~9 lines total
 
 ```ts
-// studio/functions/route-sync/index.ts
+// studio/functions/route-sync-web/index.ts
 import { createRouteSyncHandler } from '@sanity/routes'
 
 export const handler = createRouteSyncHandler('web')
 ```
 
 ```ts
-// studio/functions/route-sync/function.ts
+// studio/functions/route-sync-web/function.ts
 import { defineDocumentFunction } from '@sanity/blueprints'
 import { defineRouteSyncBlueprint } from '@sanity/routes'
 
 export const routeSyncFunction = defineDocumentFunction(
-  defineRouteSyncBlueprint('web', { types: ['blogPost', 'article'] })
+  defineRouteSyncBlueprint('web', { types: ['blogPost', 'article', 'docsNavSection'] })
 )
 ```
 
-That's it. The package handles route config lookup, pathExpression evaluation, shard management, and atomic upserts. Deploy with:
+```ts
+// studio/sanity.blueprint.ts
+import { defineBlueprint } from '@sanity/blueprints'
+import { routeSyncFunction } from './functions/route-sync-web/function'
+
+export default defineBlueprint({
+  resources: [routeSyncFunction],
+})
+```
+
+The package owns all the complexity — route config lookup, pathExpression evaluation, shard management, atomic upserts, and parent-change cascade. Deploy with:
 
 ```bash
 cd studio
@@ -643,28 +653,29 @@ When a routable document is created, updated, or deleted, `createRouteSyncHandle
    - `unset` by `_key` — removes the old entry if present
    - `insert` — adds the new entry with the resolved path
 4. **On delete** — removes the entry from the shard
-
-The handler replaces ~95 lines of boilerplate with a single function call. If you need custom behavior, you can still write the handler manually — the package exports all the building blocks.
+5. **Parent cascade** — when a parent document changes (e.g., `docsNavSection` slug), finds all child documents that reference it and re-syncs their paths
 
 ### Testing and monitoring
 
 ```bash
 # Test with a specific document
-npx sanity functions test route-sync --document-id article-installation --event update
+npx sanity functions test route-sync-web --document-id article-installation --event update
 
 # View logs
-npx sanity functions logs route-sync
+npx sanity functions logs route-sync-web
 ```
 
 ### Design decisions
 
-**Recursion-safe.** Route map documents have type `routes.map` — they never match the Function's filter (`_type in ["blogPost", "article"]`). No infinite loops.
+**Recursion-safe.** Route map documents have type `routes.map` — they never match the Function's filter. No infinite loops.
 
 **Draft-safe by default.** `includeDrafts: false` is the default — the Function only fires when documents are published, not on every keystroke in the Studio.
 
 **Single-transaction upsert.** The `createIfNotExists` + `unset` + `insert` pattern is atomic. No race conditions between concurrent publishes. `autoGenerateArrayKeys` handles key generation.
 
 **`_key`-based mutations.** Array entry removal uses `entries[_key=="..."]` instead of nested property filters like `entries[doc._ref=="..."]`. The latter causes parse errors in Sanity's mutation engine.
+
+**Parent cascade.** When a parent type (like `docsNavSection`) changes, the handler detects it via the route config's `parentSlug` mode and re-syncs all child documents. No manual rebuild needed.
 
 ---
 
