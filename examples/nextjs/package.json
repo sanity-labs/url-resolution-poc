@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm --filter @sanity/routes build && next build",
     "start": "next start",
     "typegen": "cd ../studio && pnpx sanity schema extract --enforce-required-fields && pnpx sanity typegen generate"
   },
