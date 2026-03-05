@@ -47,17 +47,42 @@ export function createRouteSyncHandler(channel: string) {
         `[@sanity/routes] Parent type "${docType}" changed — re-syncing child types`,
       )
       for (const route of parentRoutes) {
-        const childTypes = route.types
-        const typeFilter = childTypes.map((t: string) => `"${t}"`).join(', ')
-        const children = await client.fetch(
-          `*[_type in [${typeFilter}] && references($parentId)]{ _id, _type }`,
-          {parentId: docId},
-        )
-        for (const child of children || []) {
-          await syncSingleDocument(client, route, channel, child._id, child._type)
+        let childIds: string[] = []
+
+        if (route.parentRelationship === 'parentReferencesChild') {
+          // Parent document contains references to children (e.g., docsNavSection.articles[])
+          // Query the parent document for all reference fields, extract child IDs
+          const parent = await client.fetch(
+            `*[_id == $parentId][0]`,
+            {parentId: docId},
+          )
+          if (parent) {
+            // Walk all fields to find references to child types
+            childIds = extractRefs(parent).filter((ref: string) => ref !== docId)
+          }
+        } else {
+          // Child documents reference the parent (childReferencesParent)
+          const childTypes = route.types
+          const typeFilter = childTypes.map((t: string) => `"${t}"`).join(', ')
+          const children = await client.fetch(
+            `*[_type in [${typeFilter}] && references($parentId)]{ _id }`,
+            {parentId: docId},
+          )
+          childIds = (children || []).map((c: any) => c._id)
+        }
+
+        for (const childId of childIds) {
+          // Verify the child is a routable type before syncing
+          const childDoc = await client.fetch(
+            `*[_id == $id][0]{ _type }`,
+            {id: childId},
+          )
+          if (childDoc && route.types.includes(childDoc._type)) {
+            await syncSingleDocument(client, route, channel, childId, childDoc._type)
+          }
         }
         console.log(
-          `[@sanity/routes] Re-synced ${(children || []).length} child document(s) for parent ${docId}`,
+          `[@sanity/routes] Re-synced ${childIds.length} child document(s) for parent ${docId}`,
         )
       }
       return
@@ -148,4 +173,25 @@ async function syncSingleDocument(
 
   await tx.commit({autoGenerateArrayKeys: true})
   console.log(`[@sanity/routes] Synced ${docId} → ${routeEntry.basePath}/${result.path}`)
+}
+
+/**
+ * Recursively extract all _ref values from a document.
+ * Used to find child document IDs when the parent references children.
+ * @internal
+ */
+function extractRefs(obj: any): string[] {
+  const refs: string[] = []
+  if (!obj || typeof obj !== 'object') return refs
+  if (obj._ref) refs.push(obj._ref)
+  for (const val of Object.values(obj)) {
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        refs.push(...extractRefs(item))
+      }
+    } else if (val && typeof val === 'object') {
+      refs.push(...extractRefs(val))
+    }
+  }
+  return refs
 }
