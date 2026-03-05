@@ -87,19 +87,19 @@ Five independent systems solving the same problem. None of them aware of each ot
 ┌──────────────────────────────────────────────────────────────────┐
 │                         Content Lake                              │
 │                                                                   │
-│  ┌──────────────────┐                 ┌─────────────────────┐    │
+│  ┌───────────────────┐                 ┌─────────────────────┐    │
 │  │  routes.config    │                 │  routes.map         │    │
 │  │  ─────────────    │    Sync         │  ─────────────────  │    │
 │  │  channel: "web"   │    Function     │  article-xyz:       │    │
 │  │  baseUrls: [...]  │ ──────────────> │    path: "ai/..."   │    │
 │  │  routes: [...]    │  on publish/    │    _ref: "art-xyz"  │    │
 │  │                   │  unpublish      │                     │    │
-│  └──────────────────┘                 └─────────────────────┘    │
+│  └───────────────────┘                 └─────────────────────┘    │
 │           │                                      │                │
-│           │  Routable documents                   │                │
-│           │  (article, blogPost)                  │                │
-│           │  trigger the Function                 │                │
-│           │  on publish                           │                │
+│           │  Routable documents                  │                │
+│           │  (article, blogPost)                 │                │
+│           │  trigger the Function                │                │
+│           │  on publish                          │                │
 └───────────┼──────────────────────────────────────┼────────────────┘
             │                                      │
      reads config,                          reads pre-computed
@@ -107,7 +107,7 @@ Five independent systems solving the same problem. None of them aware of each ot
      per document                           in one query
             │                                      │
             ▼                                      ▼
-   ┌─────────────────┐                  ┌──────────────────┐
+   ┌──────────────────┐                  ┌──────────────────┐
    │  Realtime Mode   │                  │   Static Mode    │
    │  (primary)       │                  │   (optimization) │
    │                  │                  │                  │
@@ -115,15 +115,15 @@ Five independent systems solving the same problem. None of them aware of each ot
    │  groqField()     │                  │  sitemaps        │
    │  listen()        │                  │  PT links        │
    └────────┬─────────┘                  └────────┬─────────┘
-            │                                      │
-            └──────────────┬───────────────────────┘
+            │                                     │
+            └──────────────┬──────────────────────┘
                            │
                            ▼
-            ┌──────────────────────────┐
+            ┌───────────────────────────┐
             │        Consumers          │
             │                           │
             │  Frontend  MCP  Studio CI │
-            └──────────────────────────┘
+            └───────────────────────────┘
 ```
 
 > **The sync Function** watches for published document changes (create, update, delete) on routable types. When a slug changes, it evaluates the GROQ path expression from the route config and updates the corresponding route map shard. Setup is three lines — see [Sync Function](#sync-function).
