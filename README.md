@@ -6,6 +6,26 @@ Sanity documents don't know their own URLs. This package fixes that — one rout
 
 > **Status:** Proof of concept. The API is being validated against sanity.io's own content model before packaging for general use.
 
+## Why This Exists
+
+- **One source of truth for all URL resolution** — route config lives in the Content Lake as a document. Frontends, MCP, Presentation tool, sitemaps, and redirects all read from the same place. No more 5 independent resolvers that drift.
+- **Correct URLs for hierarchical content** — the `/docs/ai/agent-context` problem. Path expressions handle cross-document GROQ joins (parent section slug + article slug) automatically. No more 404s from missing path segments.
+- **AI agents get working links** — MCP resolves URLs through the same system as the frontend. The Nordstrom 404 bug becomes structurally impossible.
+- **Zero-token URL resolution** — route documents use public-friendly IDs. Any consumer can resolve URLs with just a project ID on public datasets. No credentials to manage.
+- **Content Lake is the single source of truth** — no `defineRoutes()` in your frontend, no deploy step, no build-time config. Edit routes in the Studio, every consumer picks it up immediately.
+- **Plugin install, not schema wiring** — `routesPlugin()` in your Studio config. One line. Schema types register automatically.
+- **Progressive disclosure for route config** — "Slug only" for 90% of types (no GROQ knowledge needed), "Section + slug" for hierarchical content, "Custom GROQ expression" for anything else.
+- **Inline GROQ resolution via `groqField()`** — embed URL resolution directly in any GROQ query. No post-processing, no separate lookup step.
+- **Portable Text link resolution via `preload()`** — one query loads all routes, returns a sync Map. No async-per-link waterfall in PT rendering.
+- **Two resolution modes from one config** — realtime (evaluates GROQ live, always fresh) for interactive use, static (pre-computed map) for bulk operations. Same route config drives both.
+- **Sync Function keeps the map updated automatically** — publish a document, route map updates within seconds. Three lines of setup. No cron jobs, no manual rebuilds.
+- **Multiple environments** — `baseUrls` array with named environments (production, staging, preview with wildcards for PR deployments). Resolver picks the right one.
+- **Presentation tool integration** — `routesPresentation()` auto-generates `resolve.locations` + `resolve.mainDocuments` from the route config. Add a type to routes → it appears in Presentation. No code change.
+- **Slug field shows the resolved URL** — editors see `/blog/my-post` as they type, derived from the route config. No guessing what the URL will be.
+- **RSC-safe package** — `@sanity/routes/resolver` has zero React dependencies. Works in Server Components, edge functions, Node.js scripts.
+- **Weak references for natural cleanup** — deleted documents leave queryable dangling refs. Stale detection, link health checks, and garbage collection come for free.
+- **Foundation for redirects, sitemaps, and link validation** — each is an afternoon project on top of this system, not a quarter-long initiative.
+
 ---
 
 ## Quick Start
