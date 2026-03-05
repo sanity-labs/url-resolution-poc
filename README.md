@@ -68,15 +68,15 @@ const url = await resolver.resolveById('article-agent-context')
 
 ## The Problem
 
-The URL for a Sanity document like "Agent Context" isn't `/docs/agent-context`. It's `/docs/ai/agent-context` — because the `ai/` prefix comes from a `docsNavSection` document that references the article through a GROQ join. The document itself has no idea.
+A document's URL often isn't just its slug. An article at `/docs/ai/agent-context` gets its `ai/` prefix from a navigation section document — a cross-document GROQ join that the article itself knows nothing about.
 
-This caused real problems:
+This creates a systemic problem:
 
-- **The MCP served 404s to AI agents** during the AI brand launch. Nordstrom flagged it. The MCP couldn't construct correct URLs because the URL depends on cross-document relationships it didn't know about.
-- **The Presentation tool needs manual `resolve.locations` config** for every document type. Each type requires hand-written location resolution logic.
-- **Every frontend reinvents URL resolution** with custom GROQ joins. The marketing site, the docs site, and the blog all have their own URL-building code.
-- **Sitemaps, redirects, and link validation** all solve the same problem independently — mapping document IDs to URLs.
-- **When the content model changes, all of these break silently.** A renamed slug field or restructured navigation means hunting down URL logic across multiple codebases.
+- **AI agents and MCP tools serve broken links** because they can't resolve URLs that depend on cross-document relationships
+- **The Presentation tool needs manual `resolve.locations` config** for every document type, each with hand-written location resolution logic
+- **Every frontend reinvents URL resolution** with custom GROQ joins — the marketing site, docs site, and blog all have their own URL-building code
+- **Sitemaps, redirects, and link validation** all solve the same problem independently — mapping document IDs to URLs
+- **Content model changes break everything silently.** A renamed slug field or restructured navigation means hunting down URL logic across multiple codebases
 
 Five independent systems solving the same problem. None of them aware of each other. All of them fragile.
 
