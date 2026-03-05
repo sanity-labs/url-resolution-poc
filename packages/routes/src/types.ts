@@ -24,6 +24,7 @@ export interface RouteEntry {
   basePath: string
   pathExpression?: string // defaults to "slug.current"
   baseUrls?: BaseUrlEntry[] // per-route base URL overrides (same shape as channel-level)
+  locales?: string[] // supported locales for this route (e.g., ['en', 'fr', 'de'])
 }
 
 // ─── Route Map Shards (pre-computed, stored in Content Lake) ─────────
@@ -43,14 +44,21 @@ export interface RouteMapEntry {
   path: string
 }
 
+// ─── Locale Options ──────────────────────────────────────────────────
+
+export interface LocaleOptions {
+  /** Locale to use when evaluating pathExpression (available as $locale in GROQ) */
+  locale?: string
+}
+
 // ─── Resolver Interface ──────────────────────────────────────────────
 
 export interface RouteResolver {
   /** Resolve a single document ID to its full URL */
-  resolveUrlById(id: string): Promise<string | null>
+  resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null>
 
   /** Resolve multiple document IDs to their full URLs */
-  resolveUrlByIds(ids: string[]): Promise<Map<string, string>>
+  resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>>
 
   /**
    * Returns a GROQ expression for the path portion of a route.
@@ -62,10 +70,10 @@ export interface RouteResolver {
   getRoutableTypes(): Promise<string[]>
 
   /** Static mode only: preload all shards into a Map<docId, fullUrl> */
-  preload(): Promise<Map<string, string>>
+  preload(options?: LocaleOptions): Promise<Map<string, string>>
 
   /** Static mode only: rebuild the route map shard for a given type */
-  rebuildType(type: string): Promise<void>
+  rebuildType(type: string, options?: LocaleOptions): Promise<void>
 
   /** Generate custom GROQ function declarations for all routable types */
   groqFunctions(): Promise<string>
@@ -96,6 +104,9 @@ export interface ResolverOptions {
 
   /** Cache TTL in milliseconds (default: 30000) */
   cacheTtl?: number
+
+  /** Default locale for all resolutions. Can be overridden per-call via options. */
+  locale?: string
 }
 
 // ─── Build Result ────────────────────────────────────────────────────

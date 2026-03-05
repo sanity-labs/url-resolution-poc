@@ -170,6 +170,14 @@ export const routeConfig = defineType({
                 }),
               ],
             }),
+            defineField({
+              name: 'locales',
+              title: 'Supported Locales',
+              type: 'array',
+              description:
+                'Locales supported by this route. When set, the pathExpression can use $locale to resolve locale-specific slugs. Leave empty for non-localized routes.',
+              of: [defineArrayMember({type: 'string'})],
+            }),
             // Mode selector
             defineField({
               name: 'mode',

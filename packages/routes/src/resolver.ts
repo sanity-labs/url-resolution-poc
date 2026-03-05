@@ -4,6 +4,7 @@ import type {
   RoutesConfig,
   RouteEntry,
   RouteMapShard,
+  LocaleOptions,
 } from './types.js'
 
 const DEFAULT_PATH_EXPRESSION = 'slug.current'
@@ -29,12 +30,14 @@ export function createRouteResolver(
     environment?: string
     baseUrl?: string
     cacheTtl?: number
+    locale?: string
   },
   options?: {
     mode?: 'realtime' | 'static'
     environment?: string
     baseUrl?: string
     cacheTtl?: number
+    locale?: string
   },
 ): RouteResolver {
   // Parse overloaded arguments
@@ -44,6 +47,7 @@ export function createRouteResolver(
     environment?: string
     baseUrl?: string
     cacheTtl?: number
+    locale?: string
   }
 
   if (typeof channelOrOptions === 'string') {
@@ -57,7 +61,12 @@ export function createRouteResolver(
     resolvedOptions = options ?? {}
   }
 
-  const {mode = 'realtime', baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL} = resolvedOptions
+  const {mode = 'realtime', baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL, locale: defaultLocale} = resolvedOptions
+
+  // ─── Locale helper ───────────────────────────────────────────────
+  function localeParams(effectiveLocale?: string): Record<string, string> {
+    return effectiveLocale ? {locale: effectiveLocale} : {}
+  }
 
   // ─── Lazy config cache ───────────────────────────────────────────
   let configCache: RoutesConfig | null = null
@@ -201,8 +210,9 @@ export function createRouteResolver(
 
   if (mode === 'realtime') {
     return {
-      async resolveUrlById(id: string): Promise<string | null> {
+      async resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null> {
         const config = await getConfig()
+        const effectiveLocale = options?.locale ?? defaultLocale
 
         // Determine doc type — fetch if not known
         const docMeta = await client.fetch<{_type: string} | null>(
@@ -218,20 +228,22 @@ export function createRouteResolver(
         const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
 
         // Evaluate the pathExpression for this specific document
+        // $locale is available in pathExpression when locale is provided
         const path = await client.fetch<string | null>(
           `*[_id == $id][0]{\"path\": ${pathExpr}}.path`,
-          {id},
+          {id, ...localeParams(effectiveLocale)},
         )
         if (!path) return null
 
         return assembleUrl(resolvedBase, route.basePath, path)
       },
 
-      async resolveUrlByIds(ids: string[]): Promise<Map<string, string>> {
+      async resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
         const result = new Map<string, string>()
         if (ids.length === 0) return result
 
         const config = await getConfig()
+        const effectiveLocale = options?.locale ?? defaultLocale
 
         // Fetch types for all IDs in one query
         const docs = await client.fetch<Array<{_id: string; _type: string}>>(
@@ -258,7 +270,7 @@ export function createRouteResolver(
 
           const paths = await client.fetch<Array<{_id: string; path: string}>>(
             `*[_id in $groupIds]{\"_id\": _id, \"path\": ${pathExpr}}`,
-            {groupIds},
+            {groupIds, ...localeParams(effectiveLocale)},
           )
 
           for (const entry of paths) {
@@ -310,11 +322,11 @@ export function createRouteResolver(
         return declarations.join('\n')
       },
 
-      preload(): Promise<Map<string, string>> {
+      preload(_options?: LocaleOptions): Promise<Map<string, string>> {
         throw new Error('preload() is only available in static mode')
       },
 
-      rebuildType(): Promise<void> {
+      rebuildType(_type: string, _options?: LocaleOptions): Promise<void> {
         throw new Error('rebuildType() is only available in static mode')
       },
 
@@ -349,24 +361,41 @@ export function createRouteResolver(
   // In-memory shard cache for static mode
   let shardCache = new Map<string, RouteMapShard>()
 
-  async function fetchShard(config: RoutesConfig, docType: string): Promise<RouteMapShard | null> {
-    const cached = shardCache.get(docType)
+  async function fetchShard(config: RoutesConfig, docType: string, locale?: string): Promise<RouteMapShard | null> {
+    const route = findRouteEntry(config, docType)
+    const sid = (route?.locales?.length && locale)
+      ? `${shardId(config.channel, docType)}-${locale}`
+      : shardId(config.channel, docType)
+    const cacheKey = sid
+
+    const cached = shardCache.get(cacheKey)
     if (cached) return cached
 
     const shard = await client.fetch<RouteMapShard | null>(
       `*[_id == $shardId][0]`,
-      {shardId: shardId(config.channel, docType)},
+      {shardId: sid},
     )
 
     if (shard) {
-      shardCache.set(docType, shard)
+      shardCache.set(cacheKey, shard)
     }
     return shard
   }
 
-  async function fetchAllShards(config: RoutesConfig): Promise<RouteMapShard[]> {
+  async function fetchAllShards(config: RoutesConfig, locale?: string): Promise<RouteMapShard[]> {
     const types = await staticResolver.getRoutableTypes()
-    const shardIds = types.map((t) => shardId(config.channel, t))
+    const shardIds: string[] = []
+
+    for (const t of types) {
+      const route = findRouteEntry(config, t)
+      if (route?.locales?.length && locale) {
+        // Locale-specific shard for i18n routes
+        shardIds.push(`${shardId(config.channel, t)}-${locale}`)
+      } else {
+        // Non-i18n shard (or no locale specified)
+        shardIds.push(shardId(config.channel, t))
+      }
+    }
 
     const shards = await client.fetch<RouteMapShard[]>(
       `*[_id in $shardIds]`,
@@ -382,14 +411,15 @@ export function createRouteResolver(
   }
 
   const staticResolver: RouteResolver = {
-    async resolveUrlById(id: string): Promise<string | null> {
+    async resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null> {
       const config = await getConfig()
+      const effectiveLocale = options?.locale ?? defaultLocale
 
       // We need to check all shards since we don't know the doc type
       const types = await staticResolver.getRoutableTypes()
 
       for (const type of types) {
-        const shard = await fetchShard(config, type)
+        const shard = await fetchShard(config, type, effectiveLocale)
         if (!shard) continue
 
         const entry = shard.entries?.find((e) => e.doc._ref === id)
@@ -403,17 +433,18 @@ export function createRouteResolver(
       return null
     },
 
-    async resolveUrlByIds(ids: string[]): Promise<Map<string, string>> {
+    async resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
       const result = new Map<string, string>()
       if (ids.length === 0) return result
 
       const config = await getConfig()
+      const effectiveLocale = options?.locale ?? defaultLocale
       const idSet = new Set(ids)
 
       const types = await staticResolver.getRoutableTypes()
 
       for (const type of types) {
-        const shard = await fetchShard(config, type)
+        const shard = await fetchShard(config, type, effectiveLocale)
         if (!shard) continue
 
         const route = findRouteEntry(config, type)
@@ -452,9 +483,10 @@ export function createRouteResolver(
       return types
     },
 
-    async preload(): Promise<Map<string, string>> {
+    async preload(options?: LocaleOptions): Promise<Map<string, string>> {
       const config = await getConfig()
-      const shards = await fetchAllShards(config)
+      const effectiveLocale = options?.locale ?? defaultLocale
+      const shards = await fetchAllShards(config, effectiveLocale)
       const result = new Map<string, string>()
 
       for (const shard of shards) {
@@ -480,24 +512,40 @@ export function createRouteResolver(
       return result
     },
 
-    async rebuildType(type: string): Promise<void> {
+    async rebuildType(type: string, options?: LocaleOptions): Promise<void> {
       const config = await getConfig()
       const route = findRouteEntry(config, type)
       if (!route) {
         throw new Error(`No route entry found for type "${type}" in channel "${config.channel}"`)
       }
 
+      const effectiveLocale = options?.locale ?? defaultLocale
+
+      // If route has locales and no specific locale requested, build for all locales
+      if (route.locales?.length && !effectiveLocale) {
+        for (const loc of route.locales) {
+          await staticResolver.rebuildType(type, {locale: loc})
+        }
+        return
+      }
+
       const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
 
       // Fetch all documents of this type and evaluate pathExpression
+      // $locale is available in pathExpression when locale is provided
       const docs = await client.fetch<Array<{_id: string; path: string}>>(
         `*[_type == $type]{\"_id\": _id, \"path\": ${pathExpr}}`,
-        {type},
+        {type, ...localeParams(effectiveLocale)},
       )
+
+      // Shard ID includes locale if present (for i18n routes)
+      const sid = effectiveLocale
+        ? `${shardId(config.channel, type)}-${effectiveLocale}`
+        : shardId(config.channel, type)
 
       // Build the shard document
       const shard: RouteMapShard = {
-        _id: shardId(config.channel, type),
+        _id: sid,
         _type: 'routes.map',
         channel: config.channel,
         documentType: type,
@@ -514,7 +562,7 @@ export function createRouteResolver(
       await client.createOrReplace(shard)
 
       // Update cache
-      shardCache.set(type, shard)
+      shardCache.set(sid, shard)
     },
 
     async groqFunctions(): Promise<string> {
@@ -540,7 +588,8 @@ export function createRouteResolver(
 
     async resolveDocumentByUrl(url: string): Promise<{id: string; type: string} | null> {
       const config = await getConfig()
-      const shards = await fetchAllShards(config)
+      const effectiveLocale = defaultLocale
+      const shards = await fetchAllShards(config, effectiveLocale)
 
       for (const shard of shards) {
         const route = findRouteEntry(config, shard.documentType)
