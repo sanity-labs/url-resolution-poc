@@ -9,7 +9,7 @@ import type {BlueprintOptions} from './types.js'
 export interface RouteSyncBlueprint {
   name: string
   event: {
-    on: readonly string[]
+    on: string[]
     filter: string
     projection: string
   }
@@ -74,7 +74,7 @@ export function defineRouteSyncBlueprint(
   return {
     name: `route-sync-${channel}`,
     event: {
-      on: ['create', 'update', 'delete'] as const,
+      on: ['create', 'update', 'delete'],
       filter: `_type in [${typeFilter}]`,
       projection: `{ _id, _type, slug }`,
     },
