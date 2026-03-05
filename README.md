@@ -68,17 +68,16 @@ const url = await resolver.resolveById('article-agent-context')
 
 ## The Problem
 
-A document's URL often isn't just its slug. An article at `/docs/ai/agent-context` gets its `ai/` prefix from a navigation section document — a cross-document GROQ join that the article itself knows nothing about.
+Documents in Sanity don't know their own URLs. A docs article at `/docs/getting-started/installation` gets its `getting-started/` prefix from a navigation section document — a cross-document GROQ join that the article itself knows nothing about. A blog post's URL might depend on its category. A product page might derive its path from a brand hierarchy.
 
 This creates a systemic problem:
 
-- **AI agents and MCP tools serve broken links** because they can't resolve URLs that depend on cross-document relationships
-- **The Presentation tool needs manual `resolve.locations` config** for every document type, each with hand-written location resolution logic
-- **Every frontend reinvents URL resolution** with custom GROQ joins — the marketing site, docs site, and blog all have their own URL-building code
-- **Sitemaps, redirects, and link validation** all solve the same problem independently — mapping document IDs to URLs
-- **Content model changes break everything silently.** A renamed slug field or restructured navigation means hunting down URL logic across multiple codebases
+- **Every consumer reinvents URL resolution.** The frontend, Studio components, Presentation tool, MCP integrations, and serverless Functions all need to map document IDs to URLs — and each builds its own GROQ joins to do it
+- **Portable Text internal links require per-link resolution** at render time, because the link only carries a document `_ref` with no URL information
+- **Content model changes break URL logic silently.** Rename a slug field, restructure navigation, or add a new section — and URL resolution breaks across every consumer independently
+- **Sitemaps, redirects, and link validation** all solve the same mapping problem from scratch, with no shared source of truth
 
-Five independent systems solving the same problem. None of them aware of each other. All of them fragile.
+Multiple systems solving the same problem. None of them aware of each other. All of them fragile.
 
 ---
 
