@@ -1,4 +1,4 @@
-name: Deploy Studio + Functions
+name: Deploy Functions
 on:
   push:
     branches: [main]
@@ -7,7 +7,7 @@ on:
       - 'packages/routes/**'
 
 jobs:
-  deploy:
+  deploy-functions:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,10 +18,6 @@ jobs:
           cache: pnpm
       - run: pnpm install
       - run: pnpm --filter @sanity/routes build
-      - run: pnpx sanity deploy --hostname url-resolution-poc
-        working-directory: studio
-        env:
-          SANITY_AUTH_TOKEN: ${{ secrets.SANITY_AUTH_TOKEN }}
       - run: pnpx sanity blueprints deploy
         working-directory: studio
         env:
