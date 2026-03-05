@@ -3,7 +3,6 @@
   "private": true,
   "dependencies": {
     "@sanity/client": "^7.0.0",
-    "@sanity/functions": "^1.0.0",
-    "@sanity/routes": "file:../../../packages/routes"
+    "@sanity/functions": "^1.0.0"
   }
 }
