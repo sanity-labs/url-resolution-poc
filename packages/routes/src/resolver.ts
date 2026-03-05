@@ -143,22 +143,29 @@ export function createRouteResolver(
 
   /**
    * Resolve the base URL for a specific route entry.
-   * Precedence: explicit option > route entry baseUrl > channel baseUrls (environment match or isDefault)
+   * Precedence: explicit option > route-level baseUrls (env match > isDefault) > channel-level baseUrls (env match > isDefault)
    */
   function resolveBaseUrlForRoute(config: RoutesConfig, route?: RouteEntry): string {
     // 1. Explicit baseUrl option (highest priority)
     if (baseUrl) return baseUrl
 
-    // 2. Per-route baseUrl override
-    if (route?.baseUrl) return route.baseUrl
+    // 2. Route-level baseUrls (if present)
+    if (route?.baseUrls?.length) {
+      // Same logic as channel-level: environment match > isDefault
+      if (environment) {
+        const match = route.baseUrls.find((entry) => entry.name === environment)
+        if (match) return match.url
+      }
+      const defaultEntry = route.baseUrls.find((entry) => entry.isDefault)
+      if (defaultEntry) return defaultEntry.url
+      // If route has baseUrls but no match, fall through to channel-level
+    }
 
-    // 3. Channel-level: environment match
+    // 3. Channel-level baseUrls
     if (environment && config.baseUrls) {
       const match = config.baseUrls.find((entry) => entry.name === environment)
       if (match) return match.url
     }
-
-    // 4. Channel-level: isDefault entry
     if (config.baseUrls) {
       const defaultEntry = config.baseUrls.find((entry) => entry.isDefault)
       if (defaultEntry) return defaultEntry.url

@@ -23,7 +23,7 @@ export interface RouteEntry {
   types: string[]
   basePath: string
   pathExpression?: string // defaults to "slug.current"
-  baseUrl?: string // per-route base URL override
+  baseUrls?: BaseUrlEntry[] // per-route base URL overrides (same shape as channel-level)
 }
 
 // ─── Route Map Shards (pre-computed, stored in Content Lake) ─────────

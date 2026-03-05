@@ -30,8 +30,21 @@ export const routeConfig = defineType({
       title: 'Default Channel',
       type: 'boolean',
       description:
-        'When enabled, this channel is used automatically when no channel is specified in the resolver. Only one channel should be marked as default.',
+        'Use this channel when no channel is specified. Only one channel should be marked as default.',
       initialValue: false,
+      validation: (Rule) =>
+        Rule.custom(async (value, context) => {
+          if (!value) return true
+          const {document, getClient} = context
+          const client = getClient({apiVersion: '2024-01-01'})
+          const existing = await client.fetch(
+            `count(*[_type == "routes.config" && isDefault == true && _id != $id && !(_id in path("drafts.**"))])`,
+            {id: document?._id?.replace(/^drafts\./, '')},
+          )
+          return existing > 0
+            ? 'Another channel is already marked as default. Only one channel can be the default.'
+            : true
+        }),
     }),
     defineField({
       name: 'baseUrls',
@@ -114,11 +127,48 @@ export const routeConfig = defineType({
               validation: (rule) => rule.required(),
             }),
             defineField({
-              name: 'baseUrl',
-              title: 'Base URL Override',
-              type: 'url',
+              name: 'baseUrls',
+              title: 'Base URL Overrides',
+              type: 'array',
               description:
-                'Optional: override the channel-level base URL for this route. When set, URLs for documents matching this route use this base URL instead of the channel default.',
+                'Optional: override the channel-level base URLs for this route. When set, URLs for documents matching this route use these base URLs instead of the channel defaults.',
+              of: [
+                defineArrayMember({
+                  type: 'object',
+                  fields: [
+                    defineField({
+                      name: 'name',
+                      title: 'Environment Name',
+                      type: 'string',
+                      description:
+                        "A label for this environment, e.g., 'production', 'staging', or 'preview'.",
+                      validation: (rule) => rule.required(),
+                    }),
+                    defineField({
+                      name: 'url',
+                      title: 'Base URL',
+                      type: 'string',
+                      description:
+                        'The root URL for this environment, including the protocol. For example, `https://www.example.com`.',
+                      validation: (rule) => rule.required(),
+                    }),
+                    defineField({
+                      name: 'isDefault',
+                      title: 'Default Environment',
+                      type: 'boolean',
+                      description:
+                        "When enabled, this environment's URL is used to build links in the Studio and previews. Only one environment should be marked as default.",
+                      initialValue: false,
+                    }),
+                  ],
+                  preview: {
+                    select: {
+                      title: 'name',
+                      subtitle: 'url',
+                    },
+                  },
+                }),
+              ],
             }),
             // Mode selector
             defineField({
