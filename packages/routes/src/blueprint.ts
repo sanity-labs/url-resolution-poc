@@ -1,17 +1,15 @@
 import type {BlueprintOptions} from './types.js'
 
-/**
- * Blueprint configuration for route sync.
- *
- * Represents the configuration needed for a Sanity Function that
- * keeps route map shards in sync when content changes.
- */
-export interface RouteSyncBlueprint {
+// Import the exact type from @sanity/blueprints so our return type
+// is directly assignable to defineDocumentFunction's parameter
+type BlueprintDocumentFunctionConfig = {
   name: string
-  event: {
-    on: ['create', 'update', 'delete']
-    filter: string
-    projection: `{${string}}`
+  event?: {
+    on?: ['create' | 'update' | 'delete' | 'publish', ...Array<'create' | 'update' | 'delete' | 'publish'>]
+    filter?: string
+    projection?: `{${string}}`
+    includeDrafts?: boolean
+    includeAllVersions?: boolean
   }
 }
 
@@ -39,17 +37,17 @@ export interface RouteSyncBlueprint {
 export function defineRouteSyncBlueprint(
   channel: string,
   options: {types: string[]},
-): RouteSyncBlueprint
+): BlueprintDocumentFunctionConfig
 
 /**
  * @deprecated Use `defineRouteSyncBlueprint(channel, options)` instead.
  */
-export function defineRouteSyncBlueprint(options: BlueprintOptions): RouteSyncBlueprint
+export function defineRouteSyncBlueprint(options: BlueprintOptions): BlueprintDocumentFunctionConfig
 
 export function defineRouteSyncBlueprint(
   channelOrOptions: string | BlueprintOptions,
   maybeOptions?: {types: string[]},
-): RouteSyncBlueprint {
+): BlueprintDocumentFunctionConfig {
   let channel: string
   let types: string[]
 

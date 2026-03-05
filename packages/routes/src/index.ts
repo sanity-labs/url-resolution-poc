@@ -23,7 +23,6 @@ export {createRouteSyncHandler} from './handler.js'
 
 // ─── Blueprint ───────────────────────────────────────────────────────
 export {defineRouteSyncBlueprint} from './blueprint.js'
-export type {RouteSyncBlueprint} from './blueprint.js'
 
 // ─── Types ───────────────────────────────────────────────────────────
 export type {
