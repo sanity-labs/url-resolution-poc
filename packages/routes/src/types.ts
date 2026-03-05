@@ -6,6 +6,7 @@ export interface RoutesConfig {
   _id: string
   _type: 'routes.config'
   channel: string
+  isDefault?: boolean
   baseUrls: BaseUrlEntry[]
   routes: RouteEntry[]
 }
@@ -22,6 +23,7 @@ export interface RouteEntry {
   types: string[]
   basePath: string
   pathExpression?: string // defaults to "slug.current"
+  baseUrl?: string // per-route base URL override
 }
 
 // ─── Route Map Shards (pre-computed, stored in Content Lake) ─────────
@@ -70,6 +72,9 @@ export interface RouteResolver {
 
   /** Realtime mode only: subscribe to content changes, returns unsubscribe fn */
   listen(): () => void
+
+  /** Static mode only: reverse-resolve a full URL to its document ID and type */
+  resolveDocumentByUrl(url: string): Promise<{id: string; type: string} | null>
 }
 
 // ─── Resolver Options ────────────────────────────────────────────────
@@ -77,8 +82,8 @@ export interface RouteResolver {
 export type ResolverMode = 'realtime' | 'static'
 
 export interface ResolverOptions {
-  /** The channel name to resolve routes for (e.g. "web") */
-  channel: string
+  /** The channel name to resolve routes for (e.g. "web"). Optional — if omitted, uses the default config. */
+  channel?: string
 
   /** Resolution mode: 'realtime' (default) or 'static' */
   mode?: ResolverMode

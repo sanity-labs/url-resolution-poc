@@ -26,6 +26,14 @@ export const routeConfig = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'isDefault',
+      title: 'Default Channel',
+      type: 'boolean',
+      description:
+        'When enabled, this channel is used automatically when no channel is specified in the resolver. Only one channel should be marked as default.',
+      initialValue: false,
+    }),
+    defineField({
       name: 'baseUrls',
       title: 'Base URLs',
       type: 'array',
@@ -104,6 +112,13 @@ export const routeConfig = defineType({
               description:
                 'The URL prefix prepended to every document\'s slug. A base path of `/blog` produces URLs like `/blog/my-post`.',
               validation: (rule) => rule.required(),
+            }),
+            defineField({
+              name: 'baseUrl',
+              title: 'Base URL Override',
+              type: 'url',
+              description:
+                'Optional: override the channel-level base URL for this route. When set, URLs for documents matching this route use this base URL instead of the channel default.',
             }),
             // Mode selector
             defineField({
