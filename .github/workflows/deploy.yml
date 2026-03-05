@@ -1,0 +1,29 @@
+name: Deploy Studio + Functions
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/**'
+      - 'packages/routes/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm --filter @sanity/routes build
+      - run: pnpx sanity deploy --hostname url-resolution-poc
+        working-directory: studio
+        env:
+          SANITY_AUTH_TOKEN: ${{ secrets.SANITY_AUTH_TOKEN }}
+      - run: pnpx sanity blueprints deploy
+        working-directory: studio
+        env:
+          SANITY_AUTH_TOKEN: ${{ secrets.SANITY_AUTH_TOKEN }}
+          SANITY_ASSET_TIMEOUT: 180
