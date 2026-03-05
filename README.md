@@ -30,22 +30,23 @@ Sanity documents don't know their own URLs. This package fixes that — one rout
 
 ## Quick Start
 
+> **Note:** `@sanity/routes` is not yet published to npm. Clone this repo to try it.
+
 ```bash
-# Clone and install
 git clone https://github.com/sanity-labs/url-resolution-poc.git
 cd url-resolution-poc
 pnpm install
 
-# Build the package
+# Build the local package
 pnpm --filter @sanity/routes build
 
-# Start everything (Studio + Frontend)
+# Start Studio + Frontend
 pnpm dev
-# Studio at http://localhost:3333
-# Frontend at http://localhost:3000
+# Studio → http://localhost:3333
+# Frontend → http://localhost:3000
 ```
 
-Or try the resolver directly — no token needed:
+Try the resolver against the live dataset — no token needed:
 
 ```ts
 import { createRouteResolver } from '@sanity/routes/resolver'
