@@ -6,7 +6,8 @@
     "build": "pnpm -r build",
     "build:routes": "pnpm --filter @sanity/routes build",
     "clean": "rm -rf packages/routes/dist studio/.sanity frontend/.next frontend/.build && echo 'Cleaned build artifacts'",
-    "rebuild": "pnpm clean && pnpm build"
+    "rebuild": "pnpm clean && pnpm build && pnpm build:functions",
+    "build:functions": "cp packages/routes/dist/handler.js studio/functions/route-sync-web/_handler.js"
   },
   "engines": {
     "node": ">=18",
