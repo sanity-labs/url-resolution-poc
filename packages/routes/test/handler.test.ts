@@ -1,19 +1,18 @@
 import {describe, it, expect} from 'vitest'
+import {getPublishedId} from '@sanity/id-utils'
 
 describe('handler', () => {
-  describe('draft ID stripping', () => {
-    const stripDrafts = (id: string) => id.replace(/^drafts\./, '')
-
+  describe('document ID normalization via @sanity/id-utils', () => {
     it('strips drafts. prefix', () => {
-      expect(stripDrafts('drafts.article-123')).toBe('article-123')
+      expect(getPublishedId('drafts.article-123')).toBe('article-123')
     })
 
-    it('leaves non-draft IDs unchanged', () => {
-      expect(stripDrafts('article-123')).toBe('article-123')
+    it('leaves published IDs unchanged', () => {
+      expect(getPublishedId('article-123')).toBe('article-123')
     })
 
-    it('only strips the prefix, not mid-string', () => {
-      expect(stripDrafts('my-drafts.doc')).toBe('my-drafts.doc')
+    it('strips versions. prefix', () => {
+      expect(getPublishedId('versions.abc123.article-123')).toBe('article-123')
     })
   })
 

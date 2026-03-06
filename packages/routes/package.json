@@ -72,5 +72,8 @@
     "typescript": "^5.5.0",
     "vitest": "^4.0.18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@sanity/id-utils": "^1.0.0"
+  }
 }

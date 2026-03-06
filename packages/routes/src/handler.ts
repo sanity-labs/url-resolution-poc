@@ -1,5 +1,6 @@
 import {documentEventHandler} from '@sanity/functions'
 import {createClient} from '@sanity/client'
+import {getPublishedId} from '@sanity/id-utils'
 import type {RouteEntry, RoutesConfig} from './types.js'
 
 /**
@@ -25,7 +26,7 @@ export function createRouteSyncHandler(channel: string) {
       useCdn: false,
     })
 
-    const docId = event.data._id.replace(/^drafts\./, '')
+    const docId = getPublishedId(event.data._id)
     const docType = event.data._type
 
     // 1. Fetch route config from Content Lake

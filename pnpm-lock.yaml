@@ -47,6 +47,10 @@ importers:
         version: 5.9.3
 
   packages/routes:
+    dependencies:
+      '@sanity/id-utils':
+        specifier: ^1.0.0
+        version: 1.0.0
     devDependencies:
       '@sanity/client':
         specifier: ^7.0.0
