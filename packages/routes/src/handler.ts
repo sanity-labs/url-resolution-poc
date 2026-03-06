@@ -154,6 +154,7 @@ export function createRouteSyncHandler(channel: string) {
     }
     } catch (error) {
       console.error(`[@sanity/routes] Sync handler error for ${event.data?._id}:`, error instanceof Error ? error.message : error)
+      throw error
     }
   })
 }

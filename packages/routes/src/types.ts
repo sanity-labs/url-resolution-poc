@@ -100,7 +100,10 @@ export interface BaseRouteResolver {
   /** The resolver mode */
   readonly mode: ResolverMode
 
-  /** Diagnose why a document ID fails to resolve */
+  /**
+   * Diagnose why a document ID fails to resolve.
+   * @experimental — the 6-status contract may evolve.
+   */
   diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult>
 }
 

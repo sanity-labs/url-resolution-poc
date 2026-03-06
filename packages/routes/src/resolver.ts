@@ -239,6 +239,52 @@ export function createRouteResolver(
     }
   }
 
+  // ─── Shared diagnosis steps 1-3 ──────────────────────────────────
+
+  async function diagnoseBase(id: string): Promise<
+    DiagnosisResult | {config: RoutesConfig; docType: string; route: RouteEntry}
+  > {
+    // 1. Check config
+    let config: RoutesConfig
+    try {
+      config = await getConfig()
+    } catch {
+      return {
+        status: 'no_config',
+        documentId: id,
+        message: `No route config found. Cannot resolve URL for document "${id}".`,
+      }
+    }
+
+    // 2. Fetch document type
+    const docMeta = await client.fetch<{_type: string} | null>(
+      `*[_id == $id][0]{_type}`,
+      {id},
+    )
+    if (!docMeta) {
+      return {
+        status: 'document_not_found',
+        documentId: id,
+        message: `Document "${id}" not found in the dataset.`,
+      }
+    }
+
+    // 3. Find route entry
+    const route = findRouteEntry(config, docMeta._type)
+    const availableRoutes = (config.routes || []).flatMap((r) => r.types || [])
+    if (!route) {
+      return {
+        status: 'no_route_entry',
+        documentId: id,
+        documentType: docMeta._type,
+        availableRoutes,
+        message: `No route entry for type "${docMeta._type}". Available routable types: ${availableRoutes.join(', ') || 'none'}.`,
+      }
+    }
+
+    return {config, docType: docMeta._type, route}
+  }
+
   // ─── Realtime mode implementation ────────────────────────────────
 
   if (mode === 'realtime') {
@@ -384,43 +430,10 @@ export function createRouteResolver(
       },
 
       async diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult> {
-        // 1. Check config
-        let config: RoutesConfig
-        try {
-          config = await getConfig()
-        } catch {
-          return {
-            status: 'no_config',
-            documentId: id,
-            message: `No route config found. Cannot resolve URL for document "${id}".`,
-          }
-        }
+        const base = await diagnoseBase(id)
+        if ('status' in base) return base
 
-        // 2. Fetch document type
-        const docMeta = await client.fetch<{_type: string} | null>(
-          `*[_id == $id][0]{_type}`,
-          {id},
-        )
-        if (!docMeta) {
-          return {
-            status: 'document_not_found',
-            documentId: id,
-            message: `Document "${id}" not found in the dataset.`,
-          }
-        }
-
-        // 3. Find route entry
-        const route = findRouteEntry(config, docMeta._type)
-        const availableRoutes = (config.routes || []).flatMap((r) => r.types || [])
-        if (!route) {
-          return {
-            status: 'no_route_entry',
-            documentId: id,
-            documentType: docMeta._type,
-            availableRoutes,
-            message: `No route entry for type "${docMeta._type}". Available routable types: ${availableRoutes.join(', ') || 'none'}.`,
-          }
-        }
+        const {config, docType, route} = base
 
         // 4. Evaluate pathExpression
         const effectiveLocale = options?.locale ?? defaultLocale
@@ -433,8 +446,8 @@ export function createRouteResolver(
           return {
             status: 'empty_path',
             documentId: id,
-            documentType: docMeta._type,
-            message: `Path expression "${pathExpr}" returned null/empty for document "${id}" (type: "${docMeta._type}").`,
+            documentType: docType,
+            message: `Path expression "${pathExpr}" returned null/empty for document "${id}" (type: "${docType}").`,
           }
         }
 
@@ -444,7 +457,7 @@ export function createRouteResolver(
         return {
           status: 'resolved',
           documentId: id,
-          documentType: docMeta._type,
+          documentType: docType,
           url,
           message: `Document "${id}" resolves to ${url}.`,
         }
@@ -736,53 +749,20 @@ export function createRouteResolver(
     },
 
     async diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult> {
-      // 1. Check config
-      let config: RoutesConfig
-      try {
-        config = await getConfig()
-      } catch {
-        return {
-          status: 'no_config',
-          documentId: id,
-          message: `No route config found. Cannot resolve URL for document "${id}".`,
-        }
-      }
+      const base = await diagnoseBase(id)
+      if ('status' in base) return base
 
-      // 2. Fetch document type
-      const docMeta = await client.fetch<{_type: string} | null>(
-        `*[_id == $id][0]{_type}`,
-        {id},
-      )
-      if (!docMeta) {
-        return {
-          status: 'document_not_found',
-          documentId: id,
-          message: `Document "${id}" not found in the dataset.`,
-        }
-      }
-
-      // 3. Find route entry
-      const route = findRouteEntry(config, docMeta._type)
-      const availableRoutes = (config.routes || []).flatMap((r) => r.types || [])
-      if (!route) {
-        return {
-          status: 'no_route_entry',
-          documentId: id,
-          documentType: docMeta._type,
-          availableRoutes,
-          message: `No route entry for type "${docMeta._type}". Available routable types: ${availableRoutes.join(', ') || 'none'}.`,
-        }
-      }
+      const {config, docType, route} = base
 
       // 4. Check shard
       const effectiveLocale = options?.locale ?? defaultLocale
-      const shard = await fetchShard(config, docMeta._type, effectiveLocale)
+      const shard = await fetchShard(config, docType, effectiveLocale)
       if (!shard) {
         return {
           status: 'shard_not_found',
           documentId: id,
-          documentType: docMeta._type,
-          message: `Route map shard not found for type "${docMeta._type}". Run buildRouteMap() or the sync handler to create it.`,
+          documentType: docType,
+          message: `Route map shard not found for type "${docType}". Run buildRouteMap() or the sync handler to create it.`,
         }
       }
 
@@ -792,8 +772,8 @@ export function createRouteResolver(
         return {
           status: 'empty_path',
           documentId: id,
-          documentType: docMeta._type,
-          message: `Document "${id}" (type: "${docMeta._type}") exists in the dataset but has no entry in the route map shard. The document may be missing a slug or the sync handler hasn't run yet.`,
+          documentType: docType,
+          message: `Document "${id}" (type: "${docType}") exists in the dataset but has no entry in the route map shard. The document may be missing a slug or the sync handler hasn't run yet.`,
         }
       }
 
@@ -803,7 +783,7 @@ export function createRouteResolver(
       return {
         status: 'resolved',
         documentId: id,
-        documentType: docMeta._type,
+        documentType: docType,
         url,
         message: `Document "${id}" resolves to ${url}.`,
       }

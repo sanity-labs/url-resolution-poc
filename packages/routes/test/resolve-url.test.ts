@@ -29,7 +29,7 @@ describe('resolveUrlById', () => {
         // diagnose will also fetch doc type (handleResolutionFailure calls diagnose)
         {query: Q_DOC_TYPE, params: {id: 'nonexistent'}, result: null},
       ])
-      const resolver = createRouteResolver(client, 'web', {warn: false})
+      const resolver = createRouteResolver(client, 'web', {})
       const url = await resolver.resolveUrlById('nonexistent')
       expect(url).toBeNull()
     })
@@ -41,7 +41,7 @@ describe('resolveUrlById', () => {
         // diagnose will also fetch doc type
         {query: Q_DOC_TYPE, params: {id: 'unknown-type-doc'}, result: {_type: 'unknownType'}},
       ])
-      const resolver = createRouteResolver(client, 'web', {warn: false})
+      const resolver = createRouteResolver(client, 'web', {})
       const url = await resolver.resolveUrlById('unknown-type-doc')
       expect(url).toBeNull()
     })
@@ -55,7 +55,7 @@ describe('resolveUrlById', () => {
         {query: Q_DOC_TYPE, params: {id: 'blog-no-slug'}, result: {_type: 'blogPost'}},
         {query: Q_PATH('slug.current'), params: {id: 'blog-no-slug'}, result: null},
       ])
-      const resolver = createRouteResolver(client, 'web', {warn: false})
+      const resolver = createRouteResolver(client, 'web', {})
       const url = await resolver.resolveUrlById('blog-no-slug')
       expect(url).toBeNull()
     })
@@ -105,7 +105,7 @@ describe('resolveUrlById', () => {
         // diagnose: doc type fetch + shard fetch
         {query: Q_DOC_TYPE, params: {id: 'not-in-shard'}, result: null},
       ])
-      const resolver = createRouteResolver(client, 'web', {mode: 'static', warn: false})
+      const resolver = createRouteResolver(client, 'web', {mode: 'static'})
       const url = await resolver.resolveUrlById('not-in-shard')
       expect(url).toBeNull()
     })
