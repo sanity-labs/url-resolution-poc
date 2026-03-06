@@ -1,13 +1,28 @@
-name: Deploy Functions
+name: CI
+
 on:
   push:
     branches: [main]
-    paths:
-      - 'studio/**'
-      - 'packages/routes/**'
+  pull_request:
+    branches: [main]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm --filter @sanity/routes build
+      - run: pnpm --filter @sanity/routes test
+
   deploy-functions:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
