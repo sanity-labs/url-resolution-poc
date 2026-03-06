@@ -18,6 +18,7 @@ Sanity documents don't know their own URLs. This package fixes that — one rout
 - [Studio Setup](#studio-setup)
 - [Sync Function](#sync-function)
 - [Frontend Integration](#frontend-integration)
+- [i18n / Localized URLs](#i18n--localized-urls)
 - [Project Structure](#project-structure)
 - [Scale Considerations](#scale-considerations)
 - [Known Limitations](#known-limitations)
@@ -370,6 +371,16 @@ defineField({
 
 The component reactively queries the route config. For `parentSlug` mode, it resolves the parent document's slug too. If the document type isn't routable, it renders the default slug input with no prefix.
 
+### 12. Default channel — zero config for single-channel projects
+
+```ts
+// Single channel? No need to specify it.
+const resolver = createRouteResolver(client)
+// Automatically finds the only routes.config document
+```
+
+Most projects have a single channel. The resolver detects this and uses it automatically — no need to pass `'web'` everywhere.
+
 ---
 
 ## Route Config
@@ -383,6 +394,7 @@ The route config is a document in the Content Lake with type `routes.config`. It
   "_id": "routes-config-web",
   "_type": "routes.config",
   "channel": "web",
+  "isDefault": true,
   "baseUrls": [
     { "name": "production", "url": "https://www.sanity.io", "isDefault": true },
     { "name": "staging", "url": "https://staging.sanity.io" },
@@ -402,6 +414,16 @@ The route config is a document in the Content Lake with type `routes.config`. It
       "parentType": "docsNavSection",
       "parentRelationship": "parentReferencesChild",
       "pathExpression": "coalesce(*[_type == \"docsNavSection\" && references(^._id)][0].slug.current + \"/\", \"\") + slug.current"
+    },
+    {
+      "types": ["product"],
+      "basePath": "/products",
+      "mode": "simpleSlug",
+      "pathExpression": "slug[_key == $locale][0].value",
+      "locales": ["en", "fr", "de"],
+      "baseUrls": [
+        { "name": "production", "url": "https://shop.sanity.io", "isDefault": true }
+      ]
     },
     {
       "types": ["page"],
@@ -429,9 +451,9 @@ A "channel" represents a distinct URL namespace. Most projects have one (`web`).
 
 ## Resolver API
 
-### `createRouteResolver(client, channel, options?)`
+### `createRouteResolver(client, channel?, options?)`
 
-Creates a resolver instance for a given channel.
+Creates a resolver instance. Channel is optional — if your project has a single `routes.config` document, the resolver finds it automatically.
 
 ```ts
 import { createRouteResolver } from '@sanity/routes/resolver'
@@ -444,9 +466,16 @@ const client = createClient({
   apiVersion: '2024-01-01',
 })
 
+// Explicit channel
 const resolver = createRouteResolver(client, 'web', {
-  environment: 'production', // optional — defaults to the isDefault base URL
+  environment: 'production',
 })
+
+// Default channel — finds the only routes.config document automatically
+const resolver = createRouteResolver(client)
+
+// Options as second arg (no channel)
+const resolver = createRouteResolver(client, { mode: 'static' })
 ```
 
 **Parameters:**
@@ -454,8 +483,9 @@ const resolver = createRouteResolver(client, 'web', {
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `client` | `SanityClient` | A `@sanity/client` instance. No token needed for public datasets. |
-| `channel` | `string` | The channel name matching your `routes.config` document. |
+| `channel` | `string` | The channel name matching your `routes.config` document. Optional — omit for single-channel projects. |
 | `options.environment` | `string` | Which base URL environment to use. Defaults to the one marked `isDefault`. |
+| `options.locale` | `string` | Default locale for `$locale` in pathExpressions. Can be overridden per-call. |
 
 ---
 
@@ -566,6 +596,19 @@ unsubscribe()
 
 ---
 
+### `resolver.resolveDocumentByUrl(url)`
+
+Reverse resolution — given a full URL, find the document that owns it. Static mode only.
+
+```ts
+const result = await resolver.resolveDocumentByUrl('https://www.sanity.io/docs/ai/agent-context')
+// → { id: 'article-agent-context', type: 'article' }
+```
+
+Returns `null` if no document matches the URL. Useful for MCP tools, incoming webhook handlers, and any context where you have a URL and need the source document.
+
+---
+
 ## Studio Setup
 
 ### 1. Install the plugin
@@ -618,6 +661,10 @@ export default defineConfig({
 - **`resolve.mainDocuments`** — Maps URL patterns back to document types. The Presentation tool uses this to find the right document when navigating by URL.
 
 When you add a new type to the route config, it automatically appears in the Presentation tool. No code change needed.
+
+> **Important:** Set `SANITY_STUDIO_PREVIEW_ORIGIN` as an environment variable on your Studio deployment. Without it, the Presentation tool defaults to `http://localhost:3000`.
+>
+> For Vercel: Add the env var in your Studio project settings pointing to your Next.js frontend URL.
 
 ---
 
@@ -786,6 +833,56 @@ async function getDocumentUrl(documentId: string) {
 
 ---
 
+## i18n / Localized URLs
+
+Route entries can declare supported locales. The `$locale` parameter is available in pathExpressions for field-level i18n:
+
+### Route config with locales
+
+```json
+{
+  "types": ["product"],
+  "basePath": "/products",
+  "pathExpression": "slug[_key == $locale][0].value",
+  "locales": ["en", "fr", "de"]
+}
+```
+
+### Resolving with locale
+
+```ts
+// Per-call locale
+const url = await resolver.resolveUrlById('product-123', { locale: 'fr' })
+// → "https://www.sanity.io/products/baskets-classiques"
+
+// Default locale at resolver level
+const resolver = createRouteResolver(client, { locale: 'fr' })
+const url = await resolver.resolveUrlById('product-123')
+// → "https://www.sanity.io/products/baskets-classiques"
+
+// Preload for a specific locale
+const frMap = await resolver.preload({ locale: 'fr' })
+```
+
+### Static mode with locales
+
+Locale-specific shards are built automatically:
+- `routes-web-product-en`
+- `routes-web-product-fr`
+- `routes-web-product-de`
+
+`rebuildType('product')` rebuilds all locale shards. The Sync Function handles this automatically.
+
+### Document-level i18n
+
+For separate documents per locale (no `internationalizedArray`), no special config needed — use the locale as part of the pathExpression:
+
+```
+pathExpression: language + "/" + slug.current
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -891,6 +988,9 @@ Routes are flat — `basePath` + resolved path. There's no support for deeply ne
 
 ### Single dataset
 The resolver assumes one dataset. Cross-dataset route resolution isn't supported.
+
+### Reverse resolution performance
+`resolveDocumentByUrl` uses a linear scan of the route map (fine for POC, would need an index for 100K+ docs).
 
 ---
 
