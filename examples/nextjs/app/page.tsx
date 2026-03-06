@@ -1,19 +1,18 @@
 import { sanityFetch } from '@/lib/live'
-import { realtimeResolver } from '@/lib/routes'
-import type { ArticleListItem, BlogPostListItem } from '@/lib/queries'
+import { resolver } from '@/lib/routes'
 
 export default async function Home() {
-  // groqField() generates GROQ at runtime based on route configuration.
-  // TypeGen can't analyze dynamic queries, so we use manual types instead.
-  const articleField = await realtimeResolver.groqField('article')
-  const blogField = await realtimeResolver.groqField('blogPost')
+  const [{ data: articles }, { data: posts }, urlMap] = await Promise.all([
+    sanityFetch({ query: `*[_type == "article"] | order(title asc) { _id, title }` }),
+    sanityFetch({ query: `*[_type == "blogPost"] | order(title asc) { _id, title }` }),
+    resolver.preload(),
+  ])
 
-  const { data: articles } = await sanityFetch({
-    query: `*[_type == "article"] | order(title asc) { _id, title, ${articleField} }`,
-  })
-  const { data: posts } = await sanityFetch({
-    query: `*[_type == "blogPost"] | order(title asc) { _id, title, ${blogField} }`,
-  })
+  const getPath = (id: string) => {
+    const url = urlMap.get(id)
+    if (!url) return '#'
+    try { return new URL(url).pathname } catch { return url }
+  }
 
   return (
     <main>
@@ -23,10 +22,10 @@ export default async function Home() {
       <section>
         <h2>Articles</h2>
         <ul>
-          {(articles as ArticleListItem[]).map((a) => (
+          {(articles as Array<{_id: string; title: string | null}>).map((a) => (
             <li key={a._id}>
-              <a href={`/docs/${a.path}`}>{a.title}</a>
-              <code> → /docs/{a.path}</code>
+              <a href={getPath(a._id)}>{a.title}</a>
+              <code> → {getPath(a._id)}</code>
             </li>
           ))}
         </ul>
@@ -35,10 +34,10 @@ export default async function Home() {
       <section>
         <h2>Blog Posts</h2>
         <ul>
-          {(posts as BlogPostListItem[]).map((p) => (
+          {(posts as Array<{_id: string; title: string | null}>).map((p) => (
             <li key={p._id}>
-              <a href={`/blog/${p.path}`}>{p.title}</a>
-              <code> → /blog/{p.path}</code>
+              <a href={getPath(p._id)}>{p.title}</a>
+              <code> → {getPath(p._id)}</code>
             </li>
           ))}
         </ul>
