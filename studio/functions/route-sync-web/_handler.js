@@ -86,30 +86,45 @@ export function createRouteSyncHandler(channel) {
             console.log(`[@sanity/routes] No route entry for type "${docType}" in channel "${channel}"`);
             return;
         }
-        // 4. Handle delete → remove entry by _key
+        // 4. Handle delete → remove entry by _key from all relevant shards
         if (event.type === 'delete') {
-            const shard = await client.fetch(`*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`, { shardId: `routes-${channel}-${docType}`, docId });
-            if (shard?.entryKey) {
-                await client
-                    .patch(`routes-${channel}-${docType}`)
-                    .unset([`entries[_key=="${shard.entryKey}"]`])
-                    .commit();
-                console.log(`[@sanity/routes] Removed ${docId} from routes-${channel}-${docType}`);
+            const shardIds = routeEntry.locales?.length
+                ? routeEntry.locales.map((l) => `routes-${channel}-${docType}-${l}`)
+                : [`routes-${channel}-${docType}`];
+            for (const sid of shardIds) {
+                const shard = await client.fetch(`*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`, { shardId: sid, docId });
+                if (shard?.entryKey) {
+                    await client
+                        .patch(sid)
+                        .unset([`entries[_key=="${shard.entryKey}"]`])
+                        .commit();
+                    console.log(`[@sanity/routes] Removed ${docId} from ${sid}`);
+                }
             }
             return;
         }
         // 5. Sync this document
-        await syncSingleDocument(client, routeEntry, channel, docId, docType);
+        // If the route has locales, sync all locale-specific shards
+        if (routeEntry.locales?.length) {
+            for (const locale of routeEntry.locales) {
+                await syncSingleDocument(client, routeEntry, channel, docId, docType, locale);
+            }
+        }
+        else {
+            await syncSingleDocument(client, routeEntry, channel, docId, docType);
+        }
     });
 }
 /**
  * Sync a single document's route map entry.
  * @internal
  */
-async function syncSingleDocument(client, routeEntry, channel, docId, docType) {
-    const shardId = `routes-${channel}-${docType}`;
+async function syncSingleDocument(client, routeEntry, channel, docId, docType, locale) {
+    const shardId = locale
+        ? `routes-${channel}-${docType}-${locale}`
+        : `routes-${channel}-${docType}`;
     const pathExpression = routeEntry.pathExpression || 'slug.current';
-    const result = await client.fetch(`*[_id == $docId][0]{ "path": ${pathExpression} }`, { docId });
+    const result = await client.fetch(`*[_id == $docId][0]{ "path": ${pathExpression} }`, { docId, ...(locale ? { locale } : {}) });
     if (!result?.path) {
         console.error(`[@sanity/routes] Could not resolve path for ${docId}`);
         return;
@@ -135,7 +150,8 @@ async function syncSingleDocument(client, routeEntry, channel, docId, docType) {
         },
     ]));
     await tx.commit({ autoGenerateArrayKeys: true });
-    console.log(`[@sanity/routes] Synced ${docId} → ${routeEntry.basePath}/${result.path}`);
+    const localeLabel = locale ? ` [${locale}]` : '';
+    console.log(`[@sanity/routes] Synced ${docId}${localeLabel} → ${routeEntry.basePath}/${result.path}`);
 }
 /**
  * Recursively extract all _ref values from a document.

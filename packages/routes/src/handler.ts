@@ -119,24 +119,37 @@ export function createRouteSyncHandler(channel: string) {
       return
     }
 
-    // 4. Handle delete → remove entry by _key
+    // 4. Handle delete → remove entry by _key from all relevant shards
     if (event.type === 'delete') {
-      const shard = await client.fetch(
-        `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
-        {shardId: `routes-${channel}-${docType}`, docId},
-      )
-      if (shard?.entryKey) {
-        await client
-          .patch(`routes-${channel}-${docType}`)
-          .unset([`entries[_key=="${shard.entryKey}"]`])
-          .commit()
-        console.log(`[@sanity/routes] Removed ${docId} from routes-${channel}-${docType}`)
+      const shardIds = routeEntry.locales?.length
+        ? routeEntry.locales.map((l: string) => `routes-${channel}-${docType}-${l}`)
+        : [`routes-${channel}-${docType}`]
+
+      for (const sid of shardIds) {
+        const shard = await client.fetch(
+          `*[_id == $shardId][0]{ "entryKey": entries[doc._ref == $docId][0]._key }`,
+          {shardId: sid, docId},
+        )
+        if (shard?.entryKey) {
+          await client
+            .patch(sid)
+            .unset([`entries[_key=="${shard.entryKey}"]`])
+            .commit()
+          console.log(`[@sanity/routes] Removed ${docId} from ${sid}`)
+        }
       }
       return
     }
 
     // 5. Sync this document
-    await syncSingleDocument(client, routeEntry, channel, docId, docType)
+    // If the route has locales, sync all locale-specific shards
+    if (routeEntry.locales?.length) {
+      for (const locale of routeEntry.locales) {
+        await syncSingleDocument(client, routeEntry, channel, docId, docType, locale)
+      }
+    } else {
+      await syncSingleDocument(client, routeEntry, channel, docId, docType)
+    }
   })
 }
 
@@ -150,13 +163,16 @@ async function syncSingleDocument(
   channel: string,
   docId: string,
   docType: string,
+  locale?: string,
 ) {
-  const shardId = `routes-${channel}-${docType}`
+  const shardId = locale
+    ? `routes-${channel}-${docType}-${locale}`
+    : `routes-${channel}-${docType}`
   const pathExpression = routeEntry.pathExpression || 'slug.current'
 
   const result = await client.fetch(
     `*[_id == $docId][0]{ "path": ${pathExpression} }`,
-    {docId},
+    {docId, ...(locale ? {locale} : {})},
   )
 
   if (!result?.path) {
@@ -194,7 +210,8 @@ async function syncSingleDocument(
   )
 
   await tx.commit({autoGenerateArrayKeys: true})
-  console.log(`[@sanity/routes] Synced ${docId} → ${routeEntry.basePath}/${result.path}`)
+  const localeLabel = locale ? ` [${locale}]` : ''
+  console.log(`[@sanity/routes] Synced ${docId}${localeLabel} → ${routeEntry.basePath}/${result.path}`)
 }
 
 /**
