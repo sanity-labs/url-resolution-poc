@@ -57,6 +57,25 @@ export interface LocaleOptions {
   locale?: string
 }
 
+// ─── Diagnosis Result ────────────────────────────────────────────────
+
+export type DiagnosisStatus =
+  | 'resolved'
+  | 'document_not_found'
+  | 'no_route_entry'
+  | 'empty_path'
+  | 'no_config'
+  | 'shard_not_found'
+
+export interface DiagnosisResult {
+  status: DiagnosisStatus
+  documentId: string
+  documentType?: string
+  url?: string
+  availableRoutes?: string[]
+  message: string
+}
+
 // ─── Base Resolver (shared by both modes) ────────────────────────────
 
 export interface BaseRouteResolver {
@@ -80,6 +99,9 @@ export interface BaseRouteResolver {
 
   /** The resolver mode */
   readonly mode: ResolverMode
+
+  /** Diagnose why a document ID fails to resolve */
+  diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult>
 }
 
 // ─── Static Resolver ─────────────────────────────────────────────────
@@ -131,6 +153,12 @@ export interface ResolverOptions {
 
   /** Default locale for all resolutions. Can be overridden per-call via options. */
   locale?: string
+
+  /** Log warnings to console on resolution failure */
+  warn?: boolean
+
+  /** Callback for resolution errors (e.g., Sentry integration) */
+  onResolutionError?: (error: DiagnosisResult) => void
 }
 
 // ─── Build Result ────────────────────────────────────────────────────

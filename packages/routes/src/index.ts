@@ -36,4 +36,6 @@ export type {
   ResolverOptions,
   BuildResult,
   BlueprintOptions,
+  DiagnosisStatus,
+  DiagnosisResult,
 } from './types.js'

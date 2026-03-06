@@ -18,13 +18,14 @@ import type {RouteEntry, RoutesConfig} from './types.js'
  */
 export function createRouteSyncHandler(channel: string) {
   return documentEventHandler(async ({context, event}: {context: any; event: any}) => {
+    try {
     const client = createClient({
       ...context.clientOptions,
       apiVersion: '2024-01-01',
       useCdn: false,
     })
 
-    const docId = event.data._id
+    const docId = event.data._id.replace(/^drafts\./, '')
     const docType = event.data._type
 
     // 1. Fetch route config from Content Lake
@@ -150,6 +151,9 @@ export function createRouteSyncHandler(channel: string) {
       }
     } else {
       await syncSingleDocument(client, routeEntry, channel, docId, docType)
+    }
+    } catch (error) {
+      console.error(`[@sanity/routes] Sync handler error for ${event.data?._id}:`, error instanceof Error ? error.message : error)
     }
   })
 }

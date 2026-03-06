@@ -17,4 +17,6 @@ export type {
   ResolverOptions,
   LocaleOptions,
   BuildResult,
+  DiagnosisStatus,
+  DiagnosisResult,
 } from './types.js'

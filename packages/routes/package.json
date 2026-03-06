@@ -28,7 +28,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "@sanity/client": "^6.0.0 || ^7.0.0",
@@ -68,7 +69,8 @@
     "react": "^19.0.0",
     "rxjs": "^7.0.0",
     "sanity": "^5.0.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "vitest": "^4.0.18"
   },
   "license": "MIT"
 }
