@@ -51,9 +51,9 @@ export interface LocaleOptions {
   locale?: string
 }
 
-// ─── Resolver Interface ──────────────────────────────────────────────
+// ─── Base Resolver (shared by both modes) ────────────────────────────
 
-export interface RouteResolver {
+export interface BaseRouteResolver {
   /** Resolve a single document ID to its full URL */
   resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null>
 
@@ -69,21 +69,39 @@ export interface RouteResolver {
   /** List all document types that have route entries */
   getRoutableTypes(): Promise<string[]>
 
-  /** Static mode only: preload all shards into a Map<docId, fullUrl> */
-  preload(options?: LocaleOptions): Promise<Map<string, string>>
-
-  /** Static mode only: rebuild the route map shard for a given type */
-  rebuildType(type: string, options?: LocaleOptions): Promise<void>
-
   /** Generate custom GROQ function declarations for all routable types */
   groqFunctions(): Promise<string>
 
-  /** Realtime mode only: subscribe to content changes, returns unsubscribe fn */
-  listen(): () => void
+  /** The resolver mode */
+  readonly mode: ResolverMode
+}
 
-  /** Static mode only: reverse-resolve a full URL to its document ID and type */
+// ─── Static Resolver ─────────────────────────────────────────────────
+
+export interface StaticRouteResolver extends BaseRouteResolver {
+  readonly mode: 'static'
+
+  /** Preload all shards into a Map<docId, fullUrl> */
+  preload(options?: LocaleOptions): Promise<Map<string, string>>
+
+  /** Rebuild the route map shard for a given type */
+  rebuildType(type: string, options?: LocaleOptions): Promise<void>
+
+  /** Reverse-resolve a full URL to its document ID and type */
   resolveDocumentByUrl(url: string): Promise<{id: string; type: string} | null>
 }
+
+// ─── Realtime Resolver ───────────────────────────────────────────────
+
+export interface RealtimeRouteResolver extends BaseRouteResolver {
+  readonly mode: 'realtime'
+
+  /** Subscribe to content changes, returns unsubscribe fn */
+  listen(): () => void
+}
+
+/** Union type for backward compatibility */
+export type RouteResolver = StaticRouteResolver | RealtimeRouteResolver
 
 // ─── Resolver Options ────────────────────────────────────────────────
 

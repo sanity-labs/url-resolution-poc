@@ -1,5 +1,5 @@
 import { defineType, defineField } from 'sanity'
-import { SlugWithUrlPreview } from '@sanity/routes'
+import { SlugWithUrlPreview } from '@sanity/routes/studio'
 
 export const blogPost = defineType({
   name: 'blogPost',
