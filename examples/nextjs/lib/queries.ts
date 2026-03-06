@@ -13,22 +13,3 @@ export const ARTICLE_BY_SLUG_QUERY = defineQuery(`
     _id, title, body
   }
 `)
-
-// ─── Dynamic queries (groqField() — TypeGen can't infer these) ─────────────
-// The homepage queries use groqField() which generates GROQ at runtime based
-// on route configuration. TypeGen can't analyze dynamic queries, so we define
-// manual types for the results.
-
-/** Result type for articles listed on the homepage (with resolved path) */
-export type ArticleListItem = {
-  _id: string
-  title: string | null
-  path: string | null
-}
-
-/** Result type for blog posts listed on the homepage (with resolved path) */
-export type BlogPostListItem = {
-  _id: string
-  title: string | null
-  path: string | null
-}

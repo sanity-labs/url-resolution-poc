@@ -1,16 +1,10 @@
 import { sanityFetch } from '@/lib/live'
-import { resolver, realtimeResolver } from '@/lib/routes'
-import type { ArticleListItem, BlogPostListItem } from '@/lib/queries'
+import { resolver } from '@/lib/routes'
 
 export default async function Home() {
-  // groqField() generates GROQ at runtime based on route configuration.
-  // TypeGen can't analyze dynamic queries, so we use manual types instead.
-  const articleField = await realtimeResolver.groqField('article')
-  const blogField = await realtimeResolver.groqField('blogPost')
-
   const [{ data: articles }, { data: posts }, urlMap] = await Promise.all([
-    sanityFetch({ query: `*[_type == "article"] | order(title asc) { _id, title, ${articleField} }` }),
-    sanityFetch({ query: `*[_type == "blogPost"] | order(title asc) { _id, title, ${blogField} }` }),
+    sanityFetch({ query: `*[_type == "article"] | order(title asc) { _id, title }` }),
+    sanityFetch({ query: `*[_type == "blogPost"] | order(title asc) { _id, title }` }),
     resolver.preload(),
   ])
 
@@ -28,7 +22,7 @@ export default async function Home() {
       <section>
         <h2>Articles</h2>
         <ul>
-          {(articles as ArticleListItem[]).map((a) => (
+          {(articles as Array<{_id: string; title: string | null}>).map((a) => (
             <li key={a._id}>
               <a href={getPath(a._id)}>{a.title}</a>
               <code> → {getPath(a._id)}</code>
@@ -40,7 +34,7 @@ export default async function Home() {
       <section>
         <h2>Blog Posts</h2>
         <ul>
-          {(posts as BlogPostListItem[]).map((p) => (
+          {(posts as Array<{_id: string; title: string | null}>).map((p) => (
             <li key={p._id}>
               <a href={getPath(p._id)}>{p.title}</a>
               <code> → {getPath(p._id)}</code>
