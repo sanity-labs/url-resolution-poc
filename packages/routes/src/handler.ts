@@ -1,5 +1,6 @@
 import {documentEventHandler} from '@sanity/functions'
 import {createClient} from '@sanity/client'
+import type {RouteEntry, RoutesConfig} from './types.js'
 
 /**
  * Creates a Sanity Function handler that keeps route map shards
@@ -27,7 +28,7 @@ export function createRouteSyncHandler(channel: string) {
     const docType = event.data._type
 
     // 1. Fetch route config from Content Lake
-    const config = await client.fetch(
+    const config = await client.fetch<RoutesConfig | null>(
       `*[_type == "routes.config" && channel == $channel][0]`,
       {channel},
     )
@@ -39,7 +40,7 @@ export function createRouteSyncHandler(channel: string) {
     // 2. Check if this is a parent type change (e.g., docsNavSection slug changed)
     //    If so, find all child documents that depend on this parent and re-sync them
     const parentRoutes = config.routes.filter(
-      (r: any) => r.mode === 'parentSlug' && r.parentType === docType,
+      (r: RouteEntry) => r.mode === 'parentSlug' && r.parentType === docType,
     )
 
     if (parentRoutes.length > 0) {
@@ -68,7 +69,7 @@ export function createRouteSyncHandler(channel: string) {
             `*[_type in [${typeFilter}] && references($parentId)]{ _id }`,
             {parentId: docId},
           )
-          childIds = (children || []).map((c: any) => c._id)
+          childIds = (children || []).map((c: {_id: string}) => c._id)
         }
 
         for (const childId of childIds) {
@@ -111,7 +112,7 @@ export function createRouteSyncHandler(channel: string) {
     }
 
     // 3. Find the route entry for this document type (direct sync)
-    const routeEntry = config.routes.find((r: any) => r.types.includes(docType))
+    const routeEntry = config.routes.find((r: RouteEntry) => r.types.includes(docType))
     if (!routeEntry) {
       console.log(
         `[@sanity/routes] No route entry for type "${docType}" in channel "${channel}"`,
@@ -159,7 +160,7 @@ export function createRouteSyncHandler(channel: string) {
  */
 async function syncSingleDocument(
   client: any,
-  routeEntry: any,
+  routeEntry: RouteEntry,
   channel: string,
   docId: string,
   docType: string,

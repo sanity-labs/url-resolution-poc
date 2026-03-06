@@ -25,6 +25,12 @@ export interface RouteEntry {
   pathExpression?: string // defaults to "slug.current"
   baseUrls?: BaseUrlEntry[] // per-route base URL overrides (same shape as channel-level)
   locales?: string[] // supported locales for this route (e.g., ['en', 'fr', 'de'])
+  mode?: 'simpleSlug' | 'parentSlug' | 'custom' // route mode for Studio UI
+  slugField?: string // field name for slug (default: 'slug')
+  parentType?: string // parent document type (for parentSlug mode)
+  parentSlugField?: string // slug field on parent (default: 'slug')
+  parentRelationship?: 'parentReferencesChild' | 'childReferencesParent'
+  parentReferenceField?: string // reference field name on parent
 }
 
 // ─── Route Map Shards (pre-computed, stored in Content Lake) ─────────
