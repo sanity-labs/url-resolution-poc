@@ -150,27 +150,6 @@ export function createRouteResolver(
 
   // ─── Base URL resolution ─────────────────────────────────────────
 
-  function resolveBaseUrl(config: RoutesConfig): string {
-    // 1. Explicit baseUrl option (highest priority)
-    if (baseUrl) return baseUrl
-
-    // 2. Environment option matched against baseUrls[].name
-    if (environment && config.baseUrls) {
-      const match = config.baseUrls.find((entry) => entry.name === environment)
-      if (match) return match.url
-    }
-
-    // 3. Entry with isDefault: true
-    if (config.baseUrls) {
-      const defaultEntry = config.baseUrls.find((entry) => entry.isDefault)
-      if (defaultEntry) return defaultEntry.url
-    }
-
-    return ''
-  }
-
-  // ─── Per-route base URL resolution ───────────────────────────────
-
   /**
    * Resolve the base URL for a specific route entry.
    * Precedence: explicit option > route-level baseUrls (env match > isDefault) > channel-level baseUrls (env match > isDefault)
@@ -369,8 +348,18 @@ export function createRouteResolver(
 
   // In-memory shard cache for static mode
   let shardCache = new Map<string, RouteMapShard>()
+  let shardCacheFetchedAt = 0
+
+  function isShardCacheStale(): boolean {
+    return Date.now() - shardCacheFetchedAt > cacheTtl
+  }
 
   async function fetchShard(config: RoutesConfig, docType: string, locale?: string): Promise<RouteMapShard | null> {
+    if (isShardCacheStale()) {
+      shardCache.clear()
+      shardCacheFetchedAt = Date.now()
+    }
+
     const route = findRouteEntry(config, docType)
     const sid = (route?.locales?.length && locale)
       ? `${shardId(config.channel, docType)}-${locale}`
@@ -411,10 +400,11 @@ export function createRouteResolver(
       {shardIds},
     )
 
-    // Cache them
+    // Cache them (use shard._id as key — matches fetchShard's cache key convention)
     for (const shard of shards) {
-      shardCache.set(shard.documentType, shard)
+      shardCache.set(shard._id, shard)
     }
+    shardCacheFetchedAt = Date.now()
 
     return shards
   }
