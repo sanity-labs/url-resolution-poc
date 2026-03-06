@@ -211,7 +211,7 @@ async function syncSingleDocument(
     p.insert('after', 'entries[-1]', [
       {
         doc: {_ref: docId, _type: 'reference', _weak: true},
-        path: result.path,
+        path: result.path.replace(/^\/+/, ''),
       },
     ]),
   )

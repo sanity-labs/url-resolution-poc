@@ -205,10 +205,10 @@ export function createRouteResolver(
   // ─── Full URL assembly ───────────────────────────────────────────
 
   function assembleUrl(resolvedBaseUrl: string, basePath: string, path: string): string {
-    // Normalize: remove trailing slashes from base, ensure leading slash on path
+    // Normalize: strip trailing slash from base, ensure leading slash on basePath, strip trailing
     const base = resolvedBaseUrl.replace(/\/+$/, '')
-    const normalizedBasePath = basePath.replace(/\/+$/, '')
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    const normalizedBasePath = basePath ? `/${basePath.replace(/^\/+|\/+$/g, '')}` : ''
+    const normalizedPath = path ? (path.startsWith('/') ? path : `/${path}`) : ''
 
     return `${base}${normalizedBasePath}${normalizedPath}`
   }

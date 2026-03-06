@@ -96,4 +96,34 @@ describe('URL assembly', () => {
     const url = await resolver.resolveUrlById('blog-nested')
     expect(url).toBe('https://www.example.com/blog/category/my-post')
   })
+
+  it('normalizes basePath without leading slash', async () => {
+    const configSloppyBasePath: RoutesConfig = {
+      ...SIMPLE_CONFIG,
+      routes: [{_key: 'r1', types: ['blogPost'], basePath: 'blog'}],
+    }
+    const client = createMockClient([
+      {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: configSloppyBasePath},
+      {query: Q_DOC_TYPE, params: {id: 'blog-hello'}, result: {_type: 'blogPost'}},
+      {query: Q_PATH('slug.current'), params: {id: 'blog-hello'}, result: 'hello-world'},
+    ])
+    const resolver = createRouteResolver(client, 'web')
+    const url = await resolver.resolveUrlById('blog-hello')
+    expect(url).toBe('https://www.example.com/blog/hello-world')
+  })
+
+  it('normalizes basePath with trailing slash', async () => {
+    const configTrailingBasePath: RoutesConfig = {
+      ...SIMPLE_CONFIG,
+      routes: [{_key: 'r1', types: ['blogPost'], basePath: '/blog/'}],
+    }
+    const client = createMockClient([
+      {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: configTrailingBasePath},
+      {query: Q_DOC_TYPE, params: {id: 'blog-hello'}, result: {_type: 'blogPost'}},
+      {query: Q_PATH('slug.current'), params: {id: 'blog-hello'}, result: 'hello-world'},
+    ])
+    const resolver = createRouteResolver(client, 'web')
+    const url = await resolver.resolveUrlById('blog-hello')
+    expect(url).toBe('https://www.example.com/blog/hello-world')
+  })
 })
