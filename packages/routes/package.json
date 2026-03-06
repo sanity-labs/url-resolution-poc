@@ -2,33 +2,25 @@
   "name": "@sanity/routes",
   "version": "0.0.1",
   "description": "URL route resolution for Sanity",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/resolver-entry.js",
+  "types": "dist/resolver-entry.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/resolver-entry.d.ts",
+      "default": "./dist/resolver-entry.js"
     },
     "./resolver": {
-      "types": "./dist/resolver.d.ts",
-      "default": "./dist/resolver.js"
+      "types": "./dist/resolver-entry.d.ts",
+      "default": "./dist/resolver-entry.js"
     },
-    "./plugin": {
-      "types": "./dist/plugin.d.ts",
-      "default": "./dist/plugin.js"
-    },
-    "./build": {
-      "types": "./dist/build.d.ts",
-      "default": "./dist/build.js"
-    },
-    "./blueprint": {
-      "types": "./dist/blueprint.d.ts",
-      "default": "./dist/blueprint.js"
+    "./studio": {
+      "types": "./dist/studio-entry.d.ts",
+      "default": "./dist/studio-entry.js"
     },
     "./handler": {
-      "types": "./dist/handler.d.ts",
-      "default": "./dist/handler.js"
+      "types": "./dist/handler-entry.d.ts",
+      "default": "./dist/handler-entry.js"
     }
   },
   "files": [

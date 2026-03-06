@@ -1,6 +1,7 @@
 import type {SanityClient} from '@sanity/client'
 import type {
-  RouteResolver,
+  StaticRouteResolver,
+  RealtimeRouteResolver,
   RoutesConfig,
   RouteEntry,
   RouteMapShard,
@@ -22,6 +23,26 @@ const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
  * 2. If no default, use the only config if exactly one exists
  * 3. Throw if multiple configs exist and none is marked as default
  */
+// Overloads
+export function createRouteResolver(
+  client: SanityClient,
+  channel?: string,
+  options?: { mode?: 'realtime'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+): RealtimeRouteResolver
+export function createRouteResolver(
+  client: SanityClient,
+  channel: string,
+  options: { mode: 'static'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+): StaticRouteResolver
+export function createRouteResolver(
+  client: SanityClient,
+  options: { mode: 'static'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+): StaticRouteResolver
+export function createRouteResolver(
+  client: SanityClient,
+  options: { mode?: 'realtime'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+): RealtimeRouteResolver
+// Implementation signature
 export function createRouteResolver(
   client: SanityClient,
   channelOrOptions?: string | {
@@ -39,7 +60,7 @@ export function createRouteResolver(
     cacheTtl?: number
     locale?: string
   },
-): RouteResolver {
+): StaticRouteResolver | RealtimeRouteResolver {
   // Parse overloaded arguments
   let channel: string | undefined
   let resolvedOptions: {
@@ -210,6 +231,8 @@ export function createRouteResolver(
 
   if (mode === 'realtime') {
     return {
+      mode: 'realtime' as const,
+
       async resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null> {
         const config = await getConfig()
         const effectiveLocale = options?.locale ?? defaultLocale
@@ -322,14 +345,6 @@ export function createRouteResolver(
         return declarations.join('\n')
       },
 
-      preload(_options?: LocaleOptions): Promise<Map<string, string>> {
-        throw new Error('preload() is only available in static mode')
-      },
-
-      rebuildType(_type: string, _options?: LocaleOptions): Promise<void> {
-        throw new Error('rebuildType() is only available in static mode')
-      },
-
       listen(): () => void {
         // Use channel if provided, otherwise listen to all route configs
         const query = channel
@@ -347,12 +362,6 @@ export function createRouteResolver(
         return () => subscription.unsubscribe()
       },
 
-      resolveDocumentByUrl(): Promise<{id: string; type: string} | null> {
-        throw new Error(
-          'resolveDocumentByUrl() requires static mode. ' +
-          'Create the resolver with { mode: "static" } to use reverse resolution.',
-        )
-      },
     }
   }
 
@@ -410,7 +419,9 @@ export function createRouteResolver(
     return shards
   }
 
-  const staticResolver: RouteResolver = {
+  const staticResolver: StaticRouteResolver = {
+    mode: 'static' as const,
+
     async resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null> {
       const config = await getConfig()
       const effectiveLocale = options?.locale ?? defaultLocale
@@ -580,10 +591,6 @@ export function createRouteResolver(
       }
 
       return declarations.join('\n')
-    },
-
-    listen(): () => void {
-      throw new Error('listen() is only available in realtime mode')
     },
 
     async resolveDocumentByUrl(url: string): Promise<{id: string; type: string} | null> {
