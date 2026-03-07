@@ -62,7 +62,7 @@ This registers the `routes.config` and `routes.map` schema types automatically.
 
 ### 2. Create your first route config
 
-In Studio, create a new `routes.config` document:
+After installing the plugin, you'll see **Route Config** in your Studio sidebar. Create a new document — the plugin sets the `_id` automatically based on the channel name. Here's the shape:
 
 ```json
 {
@@ -348,7 +348,7 @@ if (result.status === 'no_route_entry') {
 }
 ```
 
-### Three-layer error handling
+### Error handling (progressive)
 
 1. **Silent `null`** — Default. No noise in production.
 2. **`warn: true`** — Console logging for development:
@@ -359,7 +359,8 @@ if (result.status === 'no_route_entry') {
    ```ts
    createRouteResolver(client, 'web', { onResolutionError: (d) => sentry.captureMessage(d.message) })
    ```
-4. **`diagnose()`** — On-demand deep inspection for debugging specific documents.
+
+`diagnose()` is a separate tool for on-demand debugging — see [`diagnose()`](#diagnose) above.
 
 ---
 
@@ -397,15 +398,21 @@ export default async function BlogIndex() {
 
 ### Portable Text
 
-Use `preload()` to load all routes once, then resolve synchronously.
+Use `preload()` to load all routes once, then resolve synchronously in your PT renderer.
+
+```ts
+// lib/routes.ts — export both resolver modes
+export const resolver = createRouteResolver(client, 'web')
+export const staticResolver = createRouteResolver(client, 'web', { mode: 'static' })
+```
 
 ```tsx
-const resolver = createRouteResolver(client, 'web', { mode: 'static' })
+import { staticResolver } from '@/lib/routes'
 
 export async function PortableTextBody({ slug }) {
   const [post, urlMap] = await Promise.all([
     client.fetch(`*[_type == "blogPost" && slug.current == $slug][0]`, { slug }),
-    resolver.preload(),
+    staticResolver.preload(),
   ])
   const components = {
     marks: {
@@ -423,7 +430,7 @@ The `Promise.all` pattern loads the route map in parallel with your content quer
 
 ### Presentation Tool
 
-`routesPresentation()` auto-generates `resolve.locations` and `resolve.mainDocuments` from the route config.
+`routesPresentation()` auto-generates `resolve.locations` and `resolve.mainDocuments` from the route config. It's exported from `@sanity/routes` (not `./studio`) because it has no React dependency — it returns plain config objects.
 
 ```ts
 // sanity.config.ts
@@ -460,6 +467,22 @@ export async function GET() {
   )
 }
 ```
+
+### MCP / AI Agents
+
+```ts
+import { createRouteResolver } from '@sanity/routes'
+
+const resolver = createRouteResolver(client, 'web')
+
+async function getDocumentUrl(documentId: string) {
+  const url = await resolver.resolveUrlById(documentId)
+  if (!url) throw new Error(`No route found for ${documentId}`)
+  return url
+}
+```
+
+Zero-token resolution means MCP tools don't need credentials on public datasets. AI agents get correct URLs — including hierarchical paths like `/docs/ai/agent-context` that require cross-document GROQ joins.
 
 ---
 
