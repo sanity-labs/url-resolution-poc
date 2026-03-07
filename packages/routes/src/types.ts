@@ -280,14 +280,58 @@ export interface BaseRouteResolver {
    *
    * @example
    * ```ts
-   * const pathExpr = await resolver.groqField('blogPost')
+   * const pathExpr = await resolver.pathProjection('blogPost')
    * const posts = await client.fetch(
    *   `*[_type == "blogPost"]{ _id, title, ${pathExpr} }`
    * )
    * // → [{ _id: "blog-1", title: "Hello", path: "hello-world" }]
    * ```
    */
+  pathProjection(type: string): Promise<string>
+
+  /**
+   * @deprecated Use {@link pathProjection} instead.
+   */
   groqField(type: string): Promise<string>
+
+  /**
+   * Resolve a document ID to just the URL pathname (no origin).
+   *
+   * Convenience wrapper around {@link resolveUrlById} that extracts the pathname.
+   * Use this for Next.js `<Link href>`, internal routing, and `redirect()`.
+   *
+   * @param id - Published document ID
+   * @param options - Locale options for i18n routes
+   * @returns The pathname (e.g., `/docs/ai/agent-context`), or `null` if unresolvable.
+   *
+   * @example
+   * ```ts
+   * // resolveUrlById returns the full URL
+   * const url = await resolver.resolveUrlById('article-123')
+   * // → "https://www.sanity.io/docs/ai/agent-context"
+   *
+   * // resolvePathById returns just the pathname — what Next.js needs
+   * const path = await resolver.resolvePathById('article-123')
+   * // → "/docs/ai/agent-context"
+   * ```
+   */
+  resolvePathById(id: string, options?: LocaleOptions): Promise<string | null>
+
+  /**
+   * Resolve multiple document IDs to their pathnames in a single batch.
+   *
+   * @param ids - Array of published document IDs
+   * @param options - Locale options for i18n routes
+   * @returns Map of document ID → pathname. Unresolvable IDs are omitted.
+   *
+   * @example
+   * ```ts
+   * const paths = await resolver.resolvePathByIds(['blog-1', 'article-1'])
+   * paths.get('blog-1')    // → "/blog/hello-world"
+   * paths.get('article-1') // → "/docs/setup"
+   * ```
+   */
+  resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>>
 
   /**
    * List all document types that have route entries in the config.

@@ -399,7 +399,7 @@ export function createRouteResolver(
         return result
       },
 
-      async groqField(type: string): Promise<string> {
+      async pathProjection(type: string): Promise<string> {
         const config = await getConfig()
         const route = findRouteEntry(config, type)
         if (!route) {
@@ -408,6 +408,34 @@ export function createRouteResolver(
         // Return a complete GROQ projection field assignment
         const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
         return `"path": ${pathExpr}`
+      },
+
+      /** @deprecated Use {@link pathProjection} instead. */
+      async groqField(type: string): Promise<string> {
+        return realtimeResolver.pathProjection(type)
+      },
+
+      async resolvePathById(id: string, options?: LocaleOptions): Promise<string | null> {
+        const url = await realtimeResolver.resolveUrlById(id, options)
+        if (!url) return null
+        try {
+          return new URL(url).pathname
+        } catch {
+          return null
+        }
+      },
+
+      async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
+        const urlMap = await realtimeResolver.resolveUrlByIds(ids, options)
+        const result = new Map<string, string>()
+        for (const [id, url] of urlMap) {
+          try {
+            result.set(id, new URL(url).pathname)
+          } catch {
+            // skip invalid URLs
+          }
+        }
+        return result
       },
 
       async getRoutableTypes(): Promise<string[]> {
@@ -617,11 +645,39 @@ export function createRouteResolver(
       return result
     },
 
-    async groqField(type: string): Promise<string> {
+    async pathProjection(type: string): Promise<string> {
       const config = await getConfig()
       // Tier 2 map lookup — returns path from pre-computed shard
       const id = shardId(config.channel, type)
       return `"path": *[_id == "${id}"][0].entries[doc._ref == ^._id][0].path`
+    },
+
+    /** @deprecated Use {@link pathProjection} instead. */
+    async groqField(type: string): Promise<string> {
+      return staticResolver.pathProjection(type)
+    },
+
+    async resolvePathById(id: string, options?: LocaleOptions): Promise<string | null> {
+      const url = await staticResolver.resolveUrlById(id, options)
+      if (!url) return null
+      try {
+        return new URL(url).pathname
+      } catch {
+        return null
+      }
+    },
+
+    async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
+      const urlMap = await staticResolver.resolveUrlByIds(ids, options)
+      const result = new Map<string, string>()
+      for (const [id, url] of urlMap) {
+        try {
+          result.set(id, new URL(url).pathname)
+        } catch {
+          // skip invalid URLs
+        }
+      }
+      return result
     },
 
     async getRoutableTypes(): Promise<string[]> {
