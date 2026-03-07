@@ -74,6 +74,16 @@
     "typescript": "^5.5.0",
     "vitest": "^4.0.18"
   },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sanity-labs/url-resolution-poc.git",
+    "directory": "packages/routes"
+  },
+  "homepage": "https://sanity-labs.github.io/url-resolution-poc/",
+  "bugs": {
+    "url": "https://github.com/sanity-labs/url-resolution-poc/issues"
+  },
   "license": "MIT",
   "dependencies": {
     "@sanity/id-utils": "^1.0.0"
