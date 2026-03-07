@@ -12,6 +12,8 @@ export {routeConfig, routeMap, createRouteMapType} from './schema.js'
 // ─── Components ──────────────────────────────────────────────────────
 export {RouteEntryInput, DocumentTypePicker, PathExpressionField, SlugWithUrlPreview} from './components/index.js'
 
+// ─── Validation ──────────────────────────────────────────────────────
+
 // ─── Resolver ────────────────────────────────────────────────────────
 export {createRouteResolver} from './resolver.js'
 
