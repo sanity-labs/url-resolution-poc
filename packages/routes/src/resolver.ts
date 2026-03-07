@@ -6,6 +6,7 @@ import type {
   RouteEntry,
   RouteMapShard,
   LocaleOptions,
+  DiagnosisResult,
 } from './types.js'
 
 const DEFAULT_PATH_EXPRESSION = 'slug.current'
@@ -27,20 +28,20 @@ const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
 export function createRouteResolver(
   client: SanityClient,
   channel?: string,
-  options?: { mode?: 'realtime'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+  options?: { mode?: 'realtime'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
 ): RealtimeRouteResolver
 export function createRouteResolver(
   client: SanityClient,
   channel: string,
-  options: { mode: 'static'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+  options: { mode: 'static'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
 ): StaticRouteResolver
 export function createRouteResolver(
   client: SanityClient,
-  options: { mode: 'static'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+  options: { mode: 'static'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
 ): StaticRouteResolver
 export function createRouteResolver(
   client: SanityClient,
-  options: { mode?: 'realtime'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string },
+  options: { mode?: 'realtime'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
 ): RealtimeRouteResolver
 // Implementation signature
 export function createRouteResolver(
@@ -52,6 +53,8 @@ export function createRouteResolver(
     baseUrl?: string
     cacheTtl?: number
     locale?: string
+    warn?: boolean
+    onResolutionError?: (error: DiagnosisResult) => void
   },
   options?: {
     mode?: 'realtime' | 'static'
@@ -59,6 +62,8 @@ export function createRouteResolver(
     baseUrl?: string
     cacheTtl?: number
     locale?: string
+    warn?: boolean
+    onResolutionError?: (error: DiagnosisResult) => void
   },
 ): StaticRouteResolver | RealtimeRouteResolver {
   // Parse overloaded arguments
@@ -69,6 +74,8 @@ export function createRouteResolver(
     baseUrl?: string
     cacheTtl?: number
     locale?: string
+    warn?: boolean
+    onResolutionError?: (error: DiagnosisResult) => void
   }
 
   if (typeof channelOrOptions === 'string') {
@@ -82,7 +89,7 @@ export function createRouteResolver(
     resolvedOptions = options ?? {}
   }
 
-  const {mode = 'realtime', baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL, locale: defaultLocale} = resolvedOptions
+  const {mode = 'realtime', baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL, locale: defaultLocale, warn: warnOnError, onResolutionError} = resolvedOptions
 
   // ─── Locale helper ───────────────────────────────────────────────
   function localeParams(effectiveLocale?: string): Record<string, string> {
@@ -198,18 +205,90 @@ export function createRouteResolver(
   // ─── Full URL assembly ───────────────────────────────────────────
 
   function assembleUrl(resolvedBaseUrl: string, basePath: string, path: string): string {
-    // Normalize: remove trailing slashes from base, ensure leading slash on path
+    // Normalize: strip trailing slash from base, ensure leading slash on basePath, strip trailing
     const base = resolvedBaseUrl.replace(/\/+$/, '')
-    const normalizedBasePath = basePath.replace(/\/+$/, '')
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    const normalizedBasePath = basePath ? `/${basePath.replace(/^\/+|\/+$/g, '')}` : ''
+    const normalizedPath = path ? (path.startsWith('/') ? path : `/${path}`) : ''
 
     return `${base}${normalizedBasePath}${normalizedPath}`
+  }
+
+  // ─── URL normalization ───────────────────────────────────────────
+
+  function normalizeUrl(url: string): string {
+    // Strip query params and fragments
+    const cleaned = url.split('?')[0].split('#')[0]
+    // Strip trailing slash (but keep root '/')
+    return cleaned.length > 1 ? cleaned.replace(/\/+$/, '') : cleaned
+  }
+
+  // ─── Resolution failure handler ─────────────────────────────────
+
+  async function handleResolutionFailure(
+    id: string,
+    options: LocaleOptions | undefined,
+    diagnoseFn: (id: string, options?: LocaleOptions) => Promise<DiagnosisResult>,
+  ): Promise<void> {
+    if (!warnOnError && !onResolutionError) return
+    const diagnosis = await diagnoseFn(id, options)
+    if (warnOnError) {
+      console.warn(`[@sanity/routes] ${diagnosis.message}`)
+    }
+    if (onResolutionError) {
+      onResolutionError(diagnosis)
+    }
+  }
+
+  // ─── Shared diagnosis steps 1-3 ──────────────────────────────────
+
+  async function diagnoseBase(id: string): Promise<
+    DiagnosisResult | {config: RoutesConfig; docType: string; route: RouteEntry}
+  > {
+    // 1. Check config
+    let config: RoutesConfig
+    try {
+      config = await getConfig()
+    } catch {
+      return {
+        status: 'no_config',
+        documentId: id,
+        message: `No route config found. Cannot resolve URL for document "${id}".`,
+      }
+    }
+
+    // 2. Fetch document type
+    const docMeta = await client.fetch<{_type: string} | null>(
+      `*[_id == $id][0]{_type}`,
+      {id},
+    )
+    if (!docMeta) {
+      return {
+        status: 'document_not_found',
+        documentId: id,
+        message: `Document "${id}" not found in the dataset.`,
+      }
+    }
+
+    // 3. Find route entry
+    const route = findRouteEntry(config, docMeta._type)
+    const availableRoutes = (config.routes || []).flatMap((r) => r.types || [])
+    if (!route) {
+      return {
+        status: 'no_route_entry',
+        documentId: id,
+        documentType: docMeta._type,
+        availableRoutes,
+        message: `No route entry for type "${docMeta._type}". Available routable types: ${availableRoutes.join(', ') || 'none'}.`,
+      }
+    }
+
+    return {config, docType: docMeta._type, route}
   }
 
   // ─── Realtime mode implementation ────────────────────────────────
 
   if (mode === 'realtime') {
-    return {
+    const realtimeResolver: RealtimeRouteResolver = {
       mode: 'realtime' as const,
 
       async resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null> {
@@ -221,10 +300,16 @@ export function createRouteResolver(
           `*[_id == $id][0]{_type}`,
           {id},
         )
-        if (!docMeta) return null
+        if (!docMeta) {
+          await handleResolutionFailure(id, options, realtimeResolver.diagnose)
+          return null
+        }
 
         const route = findRouteEntry(config, docMeta._type)
-        if (!route) return null
+        if (!route) {
+          await handleResolutionFailure(id, options, realtimeResolver.diagnose)
+          return null
+        }
 
         const resolvedBase = resolveBaseUrlForRoute(config, route)
         const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
@@ -235,7 +320,10 @@ export function createRouteResolver(
           `*[_id == $id][0]{\"path\": ${pathExpr}}.path`,
           {id, ...localeParams(effectiveLocale)},
         )
-        if (!path) return null
+        if (!path) {
+          await handleResolutionFailure(id, options, realtimeResolver.diagnose)
+          return null
+        }
 
         return assembleUrl(resolvedBase, route.basePath, path)
       },
@@ -341,7 +429,43 @@ export function createRouteResolver(
         return () => subscription.unsubscribe()
       },
 
+      async diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult> {
+        const base = await diagnoseBase(id)
+        if ('status' in base) return base
+
+        const {config, docType, route} = base
+
+        // 4. Evaluate pathExpression
+        const effectiveLocale = options?.locale ?? defaultLocale
+        const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
+        const path = await client.fetch<string | null>(
+          `*[_id == $id][0]{"path": ${pathExpr}}.path`,
+          {id, ...localeParams(effectiveLocale)},
+        )
+        if (!path) {
+          return {
+            status: 'empty_path',
+            documentId: id,
+            documentType: docType,
+            message: `Path expression "${pathExpr}" returned null/empty for document "${id}" (type: "${docType}").`,
+          }
+        }
+
+        // 5. Everything works
+        const resolvedBase = resolveBaseUrlForRoute(config, route)
+        const url = assembleUrl(resolvedBase, route.basePath, path)
+        return {
+          status: 'resolved',
+          documentId: id,
+          documentType: docType,
+          url,
+          message: `Document "${id}" resolves to ${url}.`,
+        }
+      },
+
     }
+
+    return realtimeResolver
   }
 
   // ─── Static mode implementation ──────────────────────────────────
@@ -431,6 +555,7 @@ export function createRouteResolver(
         }
       }
 
+      await handleResolutionFailure(id, options, staticResolver.diagnose)
       return null
     },
 
@@ -587,6 +712,8 @@ export function createRouteResolver(
       const config = await getConfig()
       const effectiveLocale = defaultLocale
       const shards = await fetchAllShards(config, effectiveLocale)
+      const normalizedInput = normalizeUrl(url)
+      const isPathOnly = !normalizedInput.startsWith('http')
 
       for (const shard of shards) {
         const route = findRouteEntry(config, shard.documentType)
@@ -595,13 +722,71 @@ export function createRouteResolver(
         for (const entry of shard.entries || []) {
           if (!entry.doc?._ref) continue
           const entryUrl = assembleUrl(resolvedBase, shard.basePath, entry.path)
-          if (entryUrl === url) {
-            return {id: entry.doc._ref, type: shard.documentType}
+          const normalizedEntry = normalizeUrl(entryUrl)
+
+          if (isPathOnly) {
+            // Compare against just the path portion of the assembled URL
+            try {
+              const parsed = new URL(normalizedEntry)
+              if (normalizeUrl(parsed.pathname) === normalizedInput) {
+                return {id: entry.doc._ref, type: shard.documentType}
+              }
+            } catch {
+              // If entryUrl is not a valid URL (no base URL configured), compare directly
+              if (normalizedEntry === normalizedInput) {
+                return {id: entry.doc._ref, type: shard.documentType}
+              }
+            }
+          } else {
+            if (normalizedEntry === normalizedInput) {
+              return {id: entry.doc._ref, type: shard.documentType}
+            }
           }
         }
       }
 
       return null
+    },
+
+    async diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult> {
+      const base = await diagnoseBase(id)
+      if ('status' in base) return base
+
+      const {config, docType, route} = base
+
+      // 4. Check shard
+      const effectiveLocale = options?.locale ?? defaultLocale
+      const shard = await fetchShard(config, docType, effectiveLocale)
+      if (!shard) {
+        return {
+          status: 'shard_not_found',
+          documentId: id,
+          documentType: docType,
+          message: `Route map shard not found for type "${docType}". Run buildRouteMap() or the sync handler to create it.`,
+        }
+      }
+
+      // 5. Check entry in shard
+      const entry = shard.entries?.find((e) => e.doc._ref === id)
+      if (!entry || !entry.path) {
+        return {
+          status: 'empty_path',
+          documentId: id,
+          documentType: docType,
+          message: `Document "${id}" (type: "${docType}") exists in the dataset but has no entry in the route map shard. The document may be missing a slug or the sync handler hasn't run yet.`,
+        }
+      }
+
+      // 6. Everything works
+      const resolvedBase = resolveBaseUrlForRoute(config, route)
+      const url = assembleUrl(resolvedBase, shard.basePath, entry.path)
+      return {
+        status: 'resolved',
+        documentId: id,
+        documentType: docType,
+        url,
+        message: `Document "${id}" resolves to ${url}.`,
+      }
     },
   }
 
