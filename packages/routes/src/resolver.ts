@@ -13,16 +13,42 @@ const DEFAULT_PATH_EXPRESSION = 'slug.current'
 const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
 
 /**
- * Creates a route resolver for the given client and options.
+ * Create a route resolver for URL resolution from Sanity documents.
  *
- * Two modes:
- * - **realtime** (default): Evaluates pathExpression GROQ live against Content Lake
- * - **static**: Reads from pre-computed route map shards
+ * Returns a {@link RealtimeRouteResolver} by default (evaluates GROQ live).
+ * Pass `{ mode: 'static' }` to get a {@link StaticRouteResolver} that reads
+ * from pre-computed route map shards.
  *
- * Channel is optional. When omitted, the resolver will:
- * 1. Look for a config with `isDefault: true`
- * 2. If no default, use the only config if exactly one exists
- * 3. Throw if multiple configs exist and none is marked as default
+ * @param client - A configured `SanityClient`. For static mode with private shard IDs,
+ *   the client must have a read token.
+ * @param channel - Route config channel name (e.g., `'web'`). Optional — when omitted,
+ *   uses the config marked `isDefault: true`, or the only config if exactly one exists.
+ * @param options - Resolver options including mode, environment, and error handling.
+ * @returns A typed resolver — {@link RealtimeRouteResolver} or {@link StaticRouteResolver}
+ *   depending on the `mode` option.
+ *
+ * @example
+ * ```ts
+ * import { createRouteResolver } from '@sanity/routes'
+ * import { client } from './sanity'
+ *
+ * // Realtime (default) — works immediately, no setup
+ * const resolver = createRouteResolver(client, 'web')
+ * const url = await resolver.resolveUrlById('article-123')
+ *
+ * // Static — requires route map shards (from buildRouteMap or sync Function)
+ * const staticResolver = createRouteResolver(client, 'web', { mode: 'static' })
+ * const urlMap = await staticResolver.preload()
+ *
+ * // With environment matching and dev warnings
+ * const resolver = createRouteResolver(client, 'web', {
+ *   environment: process.env.SANITY_ROUTES_ENV,
+ *   warn: process.env.NODE_ENV !== 'production',
+ * })
+ * ```
+ *
+ * @see {@link RealtimeRouteResolver} for realtime-specific methods
+ * @see {@link StaticRouteResolver} for static-specific methods
  */
 // Overloads
 export function createRouteResolver(
