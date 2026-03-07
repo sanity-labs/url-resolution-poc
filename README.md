@@ -572,6 +572,47 @@ await resolver.resolveUrlById('article-agent-context')
 
 Preview URLs support wildcards for branch-based deployments.
 
+### Route Validation
+
+Three layers of URL collision detection, from immediate editor feedback to CI pipeline checks.
+
+#### Slug Uniqueness (Schema Validation)
+
+Add `uniqueSlug()` to your slug fields for immediate duplicate detection within a document type:
+
+```ts
+import { defineField } from 'sanity'
+import { uniqueSlug } from '@sanity/routes/studio'
+
+defineField({
+  name: 'slug',
+  type: 'slug',
+  validation: (rule) => rule.required().custom(uniqueSlug()),
+})
+```
+
+Editors see "Slug 'setup' is already in use" before publishing. Checks within the same document type only.
+
+#### Cross-Type Collision Detection (Function)
+
+A Function that fires on publish and checks whether the resolved URL collides with any existing route map entry across all types. Writes `routes.collision` documents for Studio visibility. See `studio/functions/validate-route-uniqueness/`.
+
+#### Bulk Validation (CI Script)
+
+Scan the entire route map for collisions. Exits non-zero for CI pipelines:
+
+```bash
+npx tsx scripts/validate-routes.ts
+```
+
+Requires `SANITY_PROJECT_ID` and optionally `SANITY_DATASET`, `SANITY_READ_TOKEN`.
+
+| Layer | Catches | Timing |
+|-------|---------|--------|
+| Schema validation | Same-type slug duplicates | Before publish |
+| Function | Cross-type URL collisions | On publish |
+| Bulk script | All collisions | On demand / CI |
+
 ### Redirects
 
 Automatic redirect management when slugs change. The redirect Function detects path changes on publish, creates redirect documents, and flattens chains so every redirect is always one hop.

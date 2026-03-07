@@ -1,5 +1,5 @@
 import { defineType, defineField } from 'sanity'
-import { SlugWithUrlPreview } from '@sanity/routes/studio'
+import { SlugWithUrlPreview, uniqueSlug } from '@sanity/routes/studio'
 
 export const article = defineType({
   name: 'article',
@@ -12,6 +12,7 @@ export const article = defineType({
       type: 'slug',
       options: { source: 'title' },
       components: { input: SlugWithUrlPreview },
+      validation: (rule) => rule.required().custom(uniqueSlug()),
     }),
     defineField({
       name: 'body',
