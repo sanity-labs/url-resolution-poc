@@ -5,12 +5,13 @@
   "scripts": {
     "dev": "vite dev",
     "build": "pnpm --filter @sanity/routes build && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typegen": "cd ../../studio && pnpx sanity schema extract --enforce-required-fields && pnpx sanity typegen generate"
   },
   "dependencies": {
     "@portabletext/svelte": "^2.1.0",
-    "@sanity/client": "^7.16.0",
-    "@sanity/routes": "workspace:*"
+    "@sanity/routes": "workspace:*",
+    "@sanity/sveltekit": "^0.2.0"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^6.0.0",

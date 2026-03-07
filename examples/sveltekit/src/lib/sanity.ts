@@ -1,4 +1,4 @@
-import { createClient } from '@sanity/client'
+import { createClient } from '@sanity/sveltekit'
 import { SANITY_READ_TOKEN } from '$env/static/private'
 
 export const projectId = 'bb8k7pej'
