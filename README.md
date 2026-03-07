@@ -602,7 +602,7 @@ A Function that fires on publish and checks whether the resolved URL collides wi
 Scan the entire route map for collisions. Exits non-zero for CI pipelines:
 
 ```bash
-npx tsx scripts/validate-routes.ts
+pnpx tsx scripts/validate-routes.ts
 ```
 
 Requires `SANITY_PROJECT_ID` and optionally `SANITY_DATASET`, `SANITY_READ_TOKEN`.

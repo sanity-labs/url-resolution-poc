@@ -6,7 +6,7 @@
  * collisions are found — use in CI pipelines to catch issues early.
  *
  * Usage:
- *   npx tsx scripts/validate-routes.ts
+ *   pnpx tsx scripts/validate-routes.ts
  *
  * Requires environment variables:
  *   SANITY_PROJECT_ID, SANITY_DATASET, SANITY_READ_TOKEN (if shards are private)
