@@ -28,4 +28,3 @@ export type {
 } from './types.js'
 export {getRedirects} from './redirects.js'
 export type {FrameworkRedirect} from './redirects.js'
-export {normalizePath, slugifyRedirectId} from './redirect-utils.js'

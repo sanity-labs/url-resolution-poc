@@ -580,12 +580,17 @@ Automatic redirect management when slugs change. The redirect Function detects p
 
 1. Add the `routes.redirect` schema to your Studio (included in the POC).
 
-2. Deploy the redirect Function:
+2. Deploy the redirect Function (see [`studio/functions/redirect-on-slug-change/index.ts`](studio/functions/redirect-on-slug-change/index.ts)):
 
 ```ts
-// studio/functions/redirect-on-slug-change/index.ts
+// On publish: compares old path (from route map shard) with new path (from GROQ).
+// If changed: creates redirect, flattens chains, prevents loops — all in one transaction.
 import { documentEventHandler } from '@sanity/functions'
-// ... (fires on publish of routable types)
+export const handler = documentEventHandler(async ({ context, event }) => {
+  // Fetches route config → evaluates pathExpression → creates routes.redirect document
+  // Chain flattening: updates all redirects pointing to old path → new path
+  // Loop prevention: deletes any redirect FROM the new path
+})
 ```
 
 3. Wire up `getRedirects()` in your framework:

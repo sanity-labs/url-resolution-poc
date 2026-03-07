@@ -8,12 +8,6 @@ export const handler = documentEventHandler(async ({context, event}) => {
     useCdn: false,
   })
 
-  const {before, after} = event.data
-    ? {before: event.type === 'update' ? null : null, after: event.data}
-    : {before: null, after: null}
-
-  // We need both before and after states to detect path changes
-  // For the Function, we compare the current published path with what's in the route map
   const docId = event.data._id
   const docType = event.data._type
 

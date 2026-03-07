@@ -11,6 +11,9 @@ import type {SanityClient} from '@sanity/client'
  * ```ts
  * // next.config.js \u2014 use directly
  * import { getRedirects } from '@sanity/routes'
+ * import { createClient } from '@sanity/client'
+ *
+ * const client = createClient({ projectId: 'your-id', dataset: 'production', apiVersion: '2024-01-01', useCdn: true })
  * export default {
  *   async redirects() {
  *     return getRedirects(client)
