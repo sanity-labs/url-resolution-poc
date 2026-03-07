@@ -463,14 +463,11 @@ export interface RealtimeRouteResolver extends BaseRouteResolver {
    *
    * @example
    * ```ts
-   * // In a dev server or long-running process
-   * const unsubscribe = resolver.listen()
-   *
-   * // Clean up on shutdown
-   * process.on('SIGTERM', () => {
-   *   unsubscribe()
-   *   process.exit(0)
-   * })
+   * // In a React component or layout
+   * useEffect(() => {
+   *   const unsubscribe = resolver.listen()
+   *   return () => unsubscribe() // cleanup on unmount
+   * }, [resolver])
    * ```
    */
   listen(): () => void
