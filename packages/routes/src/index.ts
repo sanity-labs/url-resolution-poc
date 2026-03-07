@@ -43,4 +43,4 @@ export type {
 
 // ─── Redirects ───────────────────────────────────────────────────────
 export {getRedirects} from './redirects.js'
-export type {FrameworkRedirect} from './redirects.js'
+export type {FrameworkRedirect, GetRedirectsOptions} from './redirects.js'
