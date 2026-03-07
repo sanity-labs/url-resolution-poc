@@ -1,9 +1,13 @@
+<script lang="ts">
+  let { children }: { children: any } = $props()
+</script>
+
 <nav>
   <a href="/">Home</a>
 </nav>
 
 <main>
-  <slot />
+  {@render children?.()}
 </main>
 
 <style>
