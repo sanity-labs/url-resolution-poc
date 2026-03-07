@@ -38,3 +38,7 @@ export type {
   DiagnosisStatus,
   DiagnosisResult,
 } from './types.js'
+
+// ─── Redirects ───────────────────────────────────────────────────────
+export {getRedirects} from './redirects.js'
+export type {FrameworkRedirect} from './redirects.js'

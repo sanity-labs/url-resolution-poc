@@ -572,6 +572,71 @@ await resolver.resolveUrlById('article-agent-context')
 
 Preview URLs support wildcards for branch-based deployments.
 
+### Redirects
+
+Automatic redirect management when slugs change. The redirect Function detects path changes on publish, creates redirect documents, and flattens chains so every redirect is always one hop.
+
+#### Setup
+
+1. Add the `routes.redirect` schema to your Studio (included in the POC).
+
+2. Deploy the redirect Function (see [`studio/functions/redirect-on-slug-change/index.ts`](studio/functions/redirect-on-slug-change/index.ts)):
+
+```ts
+// On publish: compares old path (from route map shard) with new path (from GROQ).
+// If changed: creates redirect, flattens chains, prevents loops — all in one transaction.
+import { documentEventHandler } from '@sanity/functions'
+export const handler = documentEventHandler(async ({ context, event }) => {
+  // Fetches route config → evaluates pathExpression → creates routes.redirect document
+  // Chain flattening: updates all redirects pointing to old path → new path
+  // Loop prevention: deletes any redirect FROM the new path
+})
+```
+
+3. Wire up `getRedirects()` in your framework:
+
+```ts
+// next.config.js
+import { getRedirects } from '@sanity/routes'
+import { client } from './src/sanity/lib/client'
+
+export default {
+  async redirects() {
+    return getRedirects(client)
+  }
+}
+```
+
+#### Chain Flattening
+
+When a slug changes multiple times (A→B→C), the Function updates all existing redirects to point to the final destination:
+
+| After first change (A→B) | After second change (B→C) |
+|---------------------------|---------------------------|
+| `/blog/a` → `/blog/b` | `/blog/a` → `/blog/c` |
+| | `/blog/b` → `/blog/c` |
+
+Every redirect is always one hop. No runtime chain resolution needed.
+
+#### Loop Prevention
+
+If a slug changes from A→B then back to A, the Function deletes the redirect from A (which would create a loop) and creates B→A instead.
+
+#### Scale Tiers
+
+| Redirects | Approach | Latency |
+|-----------|----------|---------|
+| < 2K | `next.config.js` `redirects()` | 0ms (edge-compiled) |
+| 2K–10K | Middleware + CDN-cached GROQ | ~5-15ms |
+| 10K+ | Vercel bulk redirects | ~0ms (Bloom filter) |
+
+#### Filtering
+
+```ts
+const autoOnly = await getRedirects(client, { source: 'auto' })
+const manualOnly = await getRedirects(client, { source: 'manual' })
+```
+
 ### Scale Considerations
 
 - **Shard size:** ~200 bytes/entry, ~160K entries/shard. Per-type sharding means most projects never hit limits.
