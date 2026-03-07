@@ -71,11 +71,6 @@ export function createRouteResolver(
 
   const {baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL, locale: defaultLocale, warn: warnOnError, onResolutionError} = resolvedOptions
 
-  // Deprecation warning for mode option
-  if (resolvedOptions.mode) {
-    console.warn('[@sanity/routes] The `mode` option is deprecated. createRouteResolver() now returns a unified resolver with all methods.')
-  }
-
   // ─── Locale helper ───────────────────────────────────────────────
   function localeParams(effectiveLocale?: string): Record<string, string> {
     return effectiveLocale ? {locale: effectiveLocale} : {}

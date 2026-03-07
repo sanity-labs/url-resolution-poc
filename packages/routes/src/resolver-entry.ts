@@ -20,10 +20,6 @@ export type {
   RouteMapShard,
   RouteMapEntry,
   RouteResolver,
-  // Deprecated aliases
-  BaseRouteResolver,
-  StaticRouteResolver,
-  RealtimeRouteResolver,
   ResolverOptions,
   LocaleOptions,
   BuildResult,

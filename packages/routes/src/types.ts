@@ -496,25 +496,7 @@ export interface RouteResolver {
   resolveDocumentByUrl(url: string): Promise<{id: string; type: string} | null>
 }
 
-/**
- * @deprecated Use {@link RouteResolver} instead. This type alias exists for backwards compatibility.
- */
-export type BaseRouteResolver = RouteResolver
 
-/**
- * @deprecated Use {@link RouteResolver} instead. This type alias exists for backwards compatibility.
- */
-export type StaticRouteResolver = RouteResolver
-
-/**
- * @deprecated Use {@link RouteResolver} instead. This type alias exists for backwards compatibility.
- */
-export type RealtimeRouteResolver = RouteResolver
-
-/**
- * @deprecated The resolver no longer has modes. All methods are available on every resolver.
- */
-export type ResolverMode = 'realtime' | 'static'
 
 /**
  * Options for {@link createRouteResolver}.
@@ -538,12 +520,6 @@ export type ResolverMode = 'realtime' | 'static'
 export interface ResolverOptions {
   /** The channel name to resolve routes for (e.g. `"web"`). Optional — if omitted, uses the default config. */
   channel?: string
-
-  /**
-   * @deprecated The resolver no longer has modes. All methods are available on every resolver.
-   * Passing this option logs a deprecation warning and is otherwise ignored.
-   */
-  mode?: ResolverMode
 
   /** Explicit base URL — highest priority, overrides all baseUrl entries in config. */
   baseUrl?: string
