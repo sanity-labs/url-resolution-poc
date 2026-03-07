@@ -1,10 +1,12 @@
 import {defineType, defineField} from 'sanity'
+import {WarningOutlineIcon} from '@sanity/icons'
 
 export const collisionType = defineType({
   name: 'routes.collision',
   title: 'URL Collision',
   type: 'document',
   readOnly: true,
+  icon: WarningOutlineIcon,
   fields: [
     defineField({
       name: 'path',

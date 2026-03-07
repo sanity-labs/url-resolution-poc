@@ -1,9 +1,11 @@
 import {defineType, defineField} from 'sanity'
+import {TransferIcon} from '@sanity/icons'
 
 export const redirectType = defineType({
   name: 'routes.redirect',
   title: 'Redirect',
   type: 'document',
+  icon: TransferIcon,
   fields: [
     defineField({
       name: 'from',
