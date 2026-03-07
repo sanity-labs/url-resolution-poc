@@ -70,7 +70,17 @@ export const routeConfig = defineType({
               type: 'string',
               description:
                 'The root URL for this environment, including the protocol. For example, `https://www.example.com`.',
-              validation: (rule) => rule.required(),
+              validation: (rule) =>
+                rule.required().custom((value) => {
+                  if (typeof value !== 'string') return true
+                  // Allow wildcards for preview URLs (e.g., https://*.sanity.dev)
+                  if (value.includes('*')) return true
+                  if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                    return 'Base URL must include protocol (https://)'
+                  }
+                  if (value.endsWith('/')) return 'Base URL must not end with /'
+                  return true
+                }),
             }),
             defineField({
               name: 'isDefault',
@@ -124,7 +134,13 @@ export const routeConfig = defineType({
               type: 'string',
               description:
                 'The URL prefix prepended to every document\'s slug. A base path of `/blog` produces URLs like `/blog/my-post`.',
-              validation: (rule) => rule.required(),
+              validation: (rule) =>
+                rule.required().custom((value) => {
+                  if (typeof value !== 'string') return true
+                  if (value !== '/' && !value.startsWith('/')) return 'Base path must start with /'
+                  if (value !== '/' && value.endsWith('/')) return 'Base path must not end with / (except root "/")'
+                  return true
+                }),
             }),
             defineField({
               name: 'baseUrls',
@@ -150,7 +166,17 @@ export const routeConfig = defineType({
                       type: 'string',
                       description:
                         'The root URL for this environment, including the protocol. For example, `https://www.example.com`.',
-                      validation: (rule) => rule.required(),
+                      validation: (rule) =>
+                        rule.required().custom((value) => {
+                          if (typeof value !== 'string') return true
+                          // Allow wildcards for preview URLs (e.g., https://*.sanity.dev)
+                          if (value.includes('*')) return true
+                          if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                            return 'Base URL must include protocol (https://)'
+                          }
+                          if (value.endsWith('/')) return 'Base URL must not end with /'
+                          return true
+                        }),
                     }),
                     defineField({
                       name: 'isDefault',
@@ -256,6 +282,19 @@ export const routeConfig = defineType({
               type: 'text',
               description:
                 "A GROQ expression that resolves to the URL path segment for each document. Auto-generated from the settings above, or write your own in 'Custom GROQ expression' mode.",
+              validation: (rule) =>
+                rule.custom((value) => {
+                  if (!value || typeof value !== 'string') return true
+                  if (value.trim() === '') return 'Path expression cannot be empty'
+                  const suspicious = ['mutation', 'delete', 'create', 'patch']
+                  const lower = value.toLowerCase()
+                  for (const word of suspicious) {
+                    if (lower.includes(word)) {
+                      return { message: `Path expression contains suspicious keyword "${word}". This field should only contain read-only GROQ projections.`, level: 'warning' }
+                    }
+                  }
+                  return true
+                }),
               components: {
                 input: PathExpressionField,
               },
