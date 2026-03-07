@@ -1,0 +1,17 @@
+import { client } from '$lib/sanity'
+import { resolver } from '$lib/routes'
+import { ARTICLES_QUERY, BLOG_POSTS_QUERY } from '$lib/queries'
+import type { PageServerLoad } from './$types'
+
+export const load: PageServerLoad = async () => {
+  const [articles, posts, urlMap] = await Promise.all([
+    client.fetch(ARTICLES_QUERY),
+    client.fetch(BLOG_POSTS_QUERY),
+    resolver.preload(),
+  ])
+
+  // SvelteKit uses devalue for serialization, which handles Maps natively.
+  // In frameworks that use JSON serialization (e.g., Remix), you'd need:
+  //   Object.fromEntries(urlMap)
+  return { articles, posts, urlMap }
+}

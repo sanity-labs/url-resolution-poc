@@ -1,0 +1,5 @@
+{
+  "path": "./src/**/*.{ts,svelte}",
+  "schema": "../../studio/schema.json",
+  "generates": "./src/lib/sanity.types.ts"
+}
