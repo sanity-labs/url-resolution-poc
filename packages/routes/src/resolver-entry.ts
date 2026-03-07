@@ -11,6 +11,7 @@
 export {createRouteResolver} from './resolver.js'
 export {buildRouteMap} from './build.js'
 export {routesPresentation} from './presentation.js'
+export {getPath} from './get-path.js'
 export type {RoutesPresentationOptions} from './presentation.js'
 export type {
   RoutesConfig,

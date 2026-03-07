@@ -100,7 +100,7 @@ import { client } from '@/lib/sanity.client'
 const resolver = createRouteResolver(client, 'web')
 
 export default async function BlogIndex() {
-  const pathField = await resolver.groqField('blogPost')
+  const pathField = await resolver.pathProjection('blogPost')
   const posts = await client.fetch(
     `*[_type == "blogPost"] | order(publishedAt desc) { _id, title, ${pathField} }`
   )
@@ -146,7 +146,7 @@ For more patterns, see [Integration Guides](#integration-guides).
    ┌─────────────────────┐                  ┌──────────────────┐
    │  Realtime Mode      │                  │   Static Mode    │
    │  resolveUrlById()   │                  │  preload()       │
-   │  groqField()        │                  │  sitemaps        │
+   │  pathProjection()   │                  │  sitemaps        │
    │  listen()           │                  │  PT links        │
    └──────────┬──────────┘                  └────────┬─────────┘
               └──────────────┬───────────────────────┘
@@ -287,7 +287,9 @@ The default resolver. Evaluates GROQ path expressions live.
 |--------|---------|-------------|
 | `resolveUrlById(id, opts?)` | `Promise<string \| null>` | Resolve one document ID to its full URL. |
 | `resolveUrlByIds(ids, opts?)` | `Promise<Map<string, string>>` | Batch resolution. Unresolvable IDs omitted. |
-| `groqField(type)` | `Promise<string>` | GROQ projection fragment for embedding in queries. |
+| `resolvePathById(id, opts?)` | `Promise<string \| null>` | Resolve one document ID to just the pathname. |
+| `resolvePathByIds(ids, opts?)` | `Promise<Map<string, string>>` | Batch pathname resolution. Unresolvable IDs omitted. |
+| `pathProjection(type)` | `Promise<string>` | GROQ projection fragment for embedding in queries. |
 | `listen()` | `() => void` | Subscribe to config changes. Returns unsubscribe fn. |
 | `diagnose(id, opts?)` | `Promise<DiagnosisResult>` | Debug why resolution fails. |
 
@@ -297,12 +299,33 @@ const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 
 // Embed URL resolution in GROQ queries
-const pathField = await resolver.groqField('article')
+const pathField = await resolver.pathProjection('article')
 const articles = await client.fetch(`*[_type == "article"]{ _id, title, ${pathField} }`)
 // Each article now has a .path field with the resolved URL path
 
 // Listen for config changes (dev servers, long-running processes)
 const unsubscribe = resolver.listen()
+
+// Resolve just the pathname — ideal for Next.js <Link href> and redirect()
+const path = await resolver.resolvePathById('article-agent-context')
+// → "/docs/ai/agent-context"
+```
+
+#### `getPath()` utility
+
+Extract the pathname from a full URL string. Useful with `preload()` maps:
+
+```ts
+import { getPath } from '@sanity/routes'
+
+const urlMap = await staticResolver.preload()
+for (const [id, url] of urlMap) {
+  const path = getPath(url)
+  // → "/blog/hello-world"
+}
+
+getPath('https://example.com/docs/setup?ref=nav') // → "/docs/setup"
+getPath('not-a-url')                               // → null
 ```
 
 ### StaticRouteResolver
@@ -381,7 +404,7 @@ export const routeResolver = createRouteResolver(client, 'web')
 import { routeResolver } from '@/lib/routes'
 
 export default async function BlogIndex() {
-  const pathField = await routeResolver.groqField('blogPost')
+  const pathField = await routeResolver.pathProjection('blogPost')
   const posts = await client.fetch(
     `*[_type == "blogPost"] | order(publishedAt desc) { _id, title, excerpt, ${pathField} }`
   )
