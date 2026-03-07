@@ -10,3 +10,5 @@ dist/
 
 # TypeDoc generated output
 packages/routes/docs/api
+.zed
+.mcp.json
