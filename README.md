@@ -8,43 +8,7 @@ Sanity documents don't know their own URLs. This package fixes that — one rout
 
 ## Table of Contents
 
-- [Why This Exists](#why-this-exists)
-- [Quick Start](#quick-start)
-- [The Problem](#the-problem)
-- [How It Works](#how-it-works)
-- [DX Highlights](#dx-highlights)
-- [Route Config](#route-config)
-- [Resolver API](#resolver-api)
-- [Studio Setup](#studio-setup)
-- [Sync Function](#sync-function)
-- [Frontend Integration](#frontend-integration)
-- [i18n / Localized URLs](#i18n--localized-urls)
-- [Project Structure](#project-structure)
-- [Scale Considerations](#scale-considerations)
-- [Known Limitations](#known-limitations)
-- [What This Enables](#what-this-enables)
-- [Sanity Project](#sanity-project)
-- [Monorepo Development Notes](#monorepo-development-notes)
-
-## Why This Exists
-
-- **One source of truth for all URL resolution** — route config lives in the Content Lake as a document. Frontends, MCP, Presentation tool, sitemaps, and redirects all read from the same place. No more 5 independent resolvers that drift.
-- **Correct URLs for hierarchical content** — the `/docs/ai/agent-context` problem. Path expressions handle cross-document GROQ joins (parent section slug + article slug) automatically. No more 404s from missing path segments.
-- **AI agents get working links** — MCP resolves URLs through the same system as the frontend. The Nordstrom 404 bug becomes structurally impossible.
-- **Zero-token URL resolution** — route documents use public-friendly IDs. Any consumer can resolve URLs with just a project ID on public datasets. No credentials to manage.
-- **Content Lake is the single source of truth** — no `defineRoutes()` in your frontend, no deploy step, no build-time config. Edit routes in the Studio, every consumer picks it up immediately.
-- **Plugin install, not schema wiring** — `routesPlugin()` in your Studio config. One line. Schema types register automatically.
-- **Progressive disclosure for route config** — "Slug only" for 90% of types (no GROQ knowledge needed), "Section + slug" for hierarchical content, "Custom GROQ expression" for anything else.
-- **Inline GROQ resolution via `groqField()`** — embed URL resolution directly in any GROQ query. No post-processing, no separate lookup step.
-- **Portable Text link resolution via `preload()`** — one query loads all routes, returns a sync Map. No async-per-link waterfall in PT rendering.
-- **Two resolution modes from one config** — realtime (evaluates GROQ live, always fresh) for interactive use, static (pre-computed map) for bulk operations. Same route config drives both.
-- **Sync Function keeps the map updated automatically** — publish a document, route map updates within seconds. Three lines of setup. No cron jobs, no manual rebuilds.
-- **Multiple environments** — `baseUrls` array with named environments (production, staging, preview with wildcards for PR deployments). Resolver picks the right one.
-- **Presentation tool integration** — `routesPresentation()` auto-generates `resolve.locations` + `resolve.mainDocuments` from the route config. Add a type to routes → it appears in Presentation. No code change.
-- **Slug field shows the resolved URL** — editors see `/blog/my-post` as they type, derived from the route config. No guessing what the URL will be.
-- **RSC-safe package** — `@sanity/routes/resolver` has zero React dependencies. Works in Server Components, edge functions, Node.js scripts.
-- **Weak references for natural cleanup** — deleted documents leave queryable dangling refs. Stale detection, link health checks, and garbage collection come for free.
-- **Foundation for redirects, sitemaps, and link validation** — each is an afternoon project on top of this system, not a quarter-long initiative.
+- [Quick Start](#quick-start) · [Setup Your Own Project](#setup-your-own-project) · [How It Works](#how-it-works) · [Route Config](#route-config) · [Resolver API](#resolver-api) · [Integration Guides](#integration-guides) · [Advanced Topics](#advanced-topics) · [Background](#background) · [Appendix](#appendix)
 
 ---
 
@@ -56,27 +20,21 @@ Sanity documents don't know their own URLs. This package fixes that — one rout
 git clone https://github.com/sanity-labs/url-resolution-poc.git
 cd url-resolution-poc
 pnpm install
-
-# Build the local package
 pnpm --filter @sanity/routes build
-
-# Start Studio + Frontend
-pnpm dev
-# Studio → http://localhost:3333
-# Frontend → http://localhost:3000
+pnpm dev  # Studio → :3333, Frontend → :3000
 ```
 
 Try the resolver against the live dataset — no token needed:
 
 ```ts
-import { createRouteResolver } from '@sanity/routes/resolver'
+import { createRouteResolver } from '@sanity/routes'
 import { createClient } from '@sanity/client'
 
 const client = createClient({
   projectId: 'bb8k7pej',
   dataset: 'production',
   useCdn: true,
-  apiVersion: '2026-03-01',
+  apiVersion: '2024-01-01',
 })
 const resolver = createRouteResolver(client, 'web')
 
@@ -84,20 +42,79 @@ const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 ```
 
+**Now set up routes for your own project →** [Setup Your Own Project](#setup-your-own-project)
+
 ---
 
-## The Problem
+## Setup Your Own Project
 
-Documents in Sanity don't know their own URLs. A docs article at `/docs/getting-started/installation` gets its `getting-started/` prefix from a navigation section document — a cross-document GROQ join that the article itself knows nothing about. A blog post's URL might depend on its category. A product page might derive its path from a brand hierarchy.
+### 1. Install the plugin
 
-This creates a systemic problem:
+```ts
+// sanity.config.ts
+import { defineConfig } from 'sanity'
+import { routesPlugin } from '@sanity/routes/studio'
 
-- **Every consumer reinvents URL resolution.** The frontend, Studio components, Presentation tool, MCP integrations, and serverless Functions all need to map document IDs to URLs — and each builds its own GROQ joins to do it
-- **Portable Text internal links require per-link resolution** at render time, because the link only carries a document `_ref` with no URL information
-- **Content model changes break URL logic silently.** Rename a slug field, restructure navigation, or add a new section — and URL resolution breaks across every consumer independently
-- **Sitemaps, redirects, and link validation** all solve the same mapping problem from scratch, with no shared source of truth
+export default defineConfig({ plugins: [routesPlugin()] })
+```
 
-Multiple systems solving the same problem. None of them aware of each other. All of them fragile.
+This registers the `routes.config` and `routes.map` schema types automatically.
+
+### 2. Create your first route config
+
+In Studio, create a new `routes.config` document:
+
+```json
+{
+  "_id": "routes-config-web",
+  "_type": "routes.config",
+  "channel": "web",
+  "isDefault": true,
+  "baseUrls": [{ "name": "production", "url": "https://www.example.com", "isDefault": true }],
+  "routes": [{ "types": ["blogPost"], "basePath": "/blog", "mode": "simpleSlug", "pathExpression": "slug.current" }]
+}
+```
+
+This tells the resolver: "blogPost documents live at `/blog/{slug}`."
+
+### 3. Test with resolveUrlById
+
+```ts
+import { createRouteResolver } from '@sanity/routes'
+import { createClient } from '@sanity/client'
+
+const client = createClient({ projectId: 'your-project-id', dataset: 'production', useCdn: true, apiVersion: '2024-01-01' })
+const resolver = createRouteResolver(client, 'web')
+
+const url = await resolver.resolveUrlById('your-blog-post-id')
+// → "https://www.example.com/blog/hello-world"
+```
+
+### 4. Add to your frontend
+
+```tsx
+// app/blog/page.tsx — Next.js Server Component
+import { createRouteResolver } from '@sanity/routes'
+import { client } from '@/lib/sanity.client'
+
+const resolver = createRouteResolver(client, 'web')
+
+export default async function BlogIndex() {
+  const pathField = await resolver.groqField('blogPost')
+  const posts = await client.fetch(
+    `*[_type == "blogPost"] | order(publishedAt desc) { _id, title, ${pathField} }`
+  )
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post._id}><a href={post.path}>{post.title}</a></li>
+      ))}
+    </ul>
+  )
+}
+```
+
+For more patterns, see [Integration Guides](#integration-guides).
 
 ---
 
@@ -117,7 +134,6 @@ Multiple systems solving the same problem. None of them aware of each other. All
 │  └───────────────────┘                 └─────────────────────┘    │
 │           │                                      │                │
 │           │  Routable documents                  │                │
-│           │  (article, blogPost)                 │                │
 │           │  trigger the Function                │                │
 │           │  on publish                          │                │
 └───────────┼──────────────────────────────────────┼────────────────┘
@@ -129,263 +145,63 @@ Multiple systems solving the same problem. None of them aware of each other. All
             ▼                                      ▼
    ┌─────────────────────┐                  ┌──────────────────┐
    │  Realtime Mode      │                  │   Static Mode    │
-   │  (primary)          │                  │   (optimization) │
-   │                     │                  │                  │
    │  resolveUrlById()   │                  │  preload()       │
    │  groqField()        │                  │  sitemaps        │
    │  listen()           │                  │  PT links        │
    └──────────┬──────────┘                  └────────┬─────────┘
-            │                                     │
-            └──────────────┬──────────────────────┘
-                           │
-                           ▼
-            ┌───────────────────────────┐
-            │        Consumers          │
-            │                           │
-            │  Frontend  MCP  Studio CI │
-            └───────────────────────────┘
+              └──────────────┬───────────────────────┘
+                             ▼
+              ┌───────────────────────────┐
+              │  Frontend  MCP  Studio CI │
+              └───────────────────────────┘
 ```
-
-> **The sync Function** watches for published document changes (create, update, delete) on routable types. When a slug changes, it evaluates the GROQ path expression from the route config and updates the corresponding route map shard. Setup is three lines — see [Sync Function](#sync-function).
 
 ### Two modes, one config
 
-**Realtime mode** is the primary resolution path. It reads the route config document and evaluates GROQ path expressions against live data. When a slug changes, the resolved URL updates immediately — no rebuild, no cache invalidation.
+**Realtime mode** reads the route config and evaluates GROQ path expressions against live data. When a slug changes, the resolved URL updates immediately.
 
 ```ts
-// Realtime: evaluates the GROQ expression for this specific document
 const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 ```
 
-**Static mode** is an optimization for bulk operations. A pre-computed route map document (`routes.map`) stores every document→URL mapping. One query loads the entire map — useful for sitemaps, Portable Text link resolution, and anywhere you need thousands of URLs at once.
-
-```ts
-// Static: loads the entire pre-computed map, returns a sync Map
-const urlMap = await resolver.preload()
-urlMap.get('article-agent-context')
-// → "https://www.sanity.io/docs/ai/agent-context"
-```
-
-Both modes read from the same route config. You don't choose one or the other — you use whichever fits the access pattern.
-
----
-
-## DX Highlights
-
-### 1. Zero-token resolution
-
-Route documents use deterministic, public-friendly IDs. On public datasets, no API token is needed. Any consumer can resolve URLs with just a project ID.
-
-```ts
-import { createClient } from '@sanity/client'
-import { createRouteResolver } from '@sanity/routes/resolver'
-
-// No token. No secret. Just resolve.
-const client = createClient({
-  projectId: 'bb8k7pej',
-  dataset: 'production',
-  useCdn: true,
-})
-const resolver = createRouteResolver(client, 'web')
-```
-
-This means the MCP, CI pipelines, and third-party integrations can all resolve URLs without managing credentials.
-
-### 2. Content Lake is the single source of truth
-
-No `defineRoutes()` in your frontend. No deploy step. The route config lives in the Content Lake as a document. Edit it in the Studio, and every consumer picks up the change immediately.
-
-```
-Before: routes defined in 5 places (frontend, MCP, Presentation config, sitemap generator, redirect rules)
-After:  routes defined in 1 place (Content Lake), consumed everywhere
-```
-
-### 3. Plugin pattern — one line in your Studio config
-
-```ts
-import { routesPlugin } from '@sanity/routes/plugin'
-
-export default defineConfig({
-  plugins: [
-    routesPlugin(), // Registers schema, adds route config UI
-  ],
-})
-```
-
-The plugin registers the `routes.config` and `routes.map` schema types automatically. No manual schema definitions.
-
-### 4. Progressive disclosure for route config
-
-Most routes are simple. The config reflects that:
-
-**Slug only** — for 90% of document types:
-```json
-{
-  "types": ["blogPost"],
-  "basePath": "/blog",
-  "mode": "simpleSlug",
-  "pathExpression": "slug.current"
-}
-```
-
-**Section + slug** — for hierarchical content:
-```json
-{
-  "types": ["article"],
-  "basePath": "/docs",
-  "mode": "parentSlug",
-  "parentType": "docsNavSection",
-  "parentRelationship": "parentReferencesChild"
-}
-```
-
-**Custom GROQ expression** — for anything else:
-```json
-{
-  "types": ["article"],
-  "basePath": "/docs",
-  "mode": "custom",
-  "pathExpression": "coalesce(*[_type == \"docsNavSection\" && references(^._id)][0].slug.current + \"/\", \"\") + slug.current"
-}
-```
-
-You don't need to know GROQ to set up routes. You only reach for it when the simple modes don't fit.
-
-### 5. `groqField()` for inline resolution
-
-Embed URL resolution directly in your GROQ queries. No post-processing step.
-
-```ts
-const pathField = await resolver.groqField('article')
-// Returns a GROQ expression fragment
-
-const articles = await client.fetch(
-  `*[_type == "article"]{ _id, title, ${pathField} }`
-)
-// Each article now has a .path field with the resolved URL path
-```
-
-The resolver reads the route config, builds the appropriate GROQ expression for the given type, and returns it as a string you can interpolate into any query.
-
-### 6. `preload()` for Portable Text
-
-Rendering Portable Text with internal links? Load all routes once, resolve synchronously.
+**Static mode** reads from a pre-computed route map. One query loads every document→URL mapping — ideal for sitemaps, Portable Text links, and bulk operations.
 
 ```ts
 const urlMap = await resolver.preload()
-
-// In your PT serializer — no async, no waterfall
-const InternalLink = ({ value, children }) => {
-  const url = urlMap.get(value.reference._ref)
-  return <a href={url}>{children}</a>
-}
+urlMap.get('article-agent-context') // → "https://www.sanity.io/docs/ai/agent-context"
 ```
 
-One query. Sync lookups. No async-per-link waterfall in your rendering pipeline.
-
-### 7. Multiple environments
-
-Define base URLs for every environment. The resolver picks the right one.
-
-```json
-{
-  "baseUrls": [
-    { "name": "production", "url": "https://www.sanity.io", "isDefault": true },
-    { "name": "staging", "url": "https://staging.sanity.io" },
-    { "name": "preview", "url": "https://*.sanity.dev" }
-  ]
-}
-```
-
-```ts
-// Resolve for a specific environment
-const resolver = createRouteResolver(client, 'web', { environment: 'staging' })
-const url = await resolver.resolveUrlById('article-agent-context')
-// → "https://staging.sanity.io/docs/ai/agent-context"
-```
-
-Preview URLs support wildcards for branch-based deployments.
-
-### 8. Presentation tool integration
-
-`routesPresentation()` auto-generates `resolve.locations` and `resolve.mainDocuments` from the route config. No more manual location mapping per document type.
-
-```ts
-import { presentationTool } from 'sanity/presentation'
-import { routesPresentation } from '@sanity/routes/plugin'
-
-export default defineConfig({
-  plugins: [
-    presentationTool({
-      resolve: routesPresentation('web'),
-      previewUrl: { previewMode: { enable: '/api/draft-mode/enable' } },
-    }),
-  ],
-})
-```
-
-Every type in your route config automatically gets location resolution in the Presentation tool. Add a new type to the route config → it shows up in Presentation. No code change.
-
-### 9. Weak references for route map entries
-
-Static mode route map entries use weak references (`_ref` with `_weak: true`). This means:
-
-- `references()` queries work — find all routes pointing to a document
-- Stale detection comes for free — deleted documents leave dangling refs you can query for
-- Natural cleanup — no orphaned route entries to garbage collect manually
-
-### 10. RSC-safe package
-
-`@sanity/routes/resolver` has zero React dependencies. Import it in Next.js Server Components, edge functions, or any Node.js context without bundler issues.
-
-```ts
-// app/docs/[...slug]/page.tsx — Server Component, no "use client" needed
-import { createRouteResolver } from '@sanity/routes/resolver'
-
-export default async function DocPage({ params }) {
-  const resolver = createRouteResolver(client, 'web')
-  // Safe in RSC — no React import, no client-side code
-}
-```
-
-### 11. Slug field URL preview
-
-Editors see the full resolved URL above the slug input — live, reactive, derived from the route config:
-
-```
-https://www.sanity.io/docs/guides/
-[  portable-text-links          ] [Generate]
-```
-
-```ts
-import { SlugWithUrlPreview } from '@sanity/routes'
-
-defineField({
-  name: 'slug',
-  type: 'slug',
-  options: { source: 'title' },
-  components: { input: SlugWithUrlPreview },
-})
-```
-
-The component reactively queries the route config. For `parentSlug` mode, it resolves the parent document's slug too. If the document type isn't routable, it renders the default slug input with no prefix.
-
-### 12. Default channel — zero config for single-channel projects
-
-```ts
-// Single channel? No need to specify it.
-const resolver = createRouteResolver(client)
-// Automatically finds the only routes.config document
-```
-
-Most projects have a single channel. The resolver detects this and uses it automatically — no need to pass `'web'` everywhere.
+Both modes read from the same route config. The sync Function that keeps the static map updated is covered in [Advanced Topics](#sync-function).
 
 ---
 
 ## Route Config
 
-The route config is a document in the Content Lake with type `routes.config`. It defines your entire URL structure for a given channel (e.g., "web", "mobile", "docs").
+The route config is a `routes.config` document in the Content Lake defining your URL structure for a given channel.
+
+### Route modes
+
+| Mode | When to use | GROQ knowledge needed |
+|------|------------|----------------------|
+| `simpleSlug` | Document has a `slug` field, URL is `basePath + slug` | None |
+| `parentSlug` | URL includes a parent segment (e.g., section/article) | None — the resolver builds the GROQ |
+| `custom` | Complex URL logic that doesn't fit the above | Yes — you write the GROQ expression |
+
+**Slug only** — 90% of document types:
+```json
+{ "types": ["blogPost"], "basePath": "/blog", "mode": "simpleSlug", "pathExpression": "slug.current" }
+```
+
+**Section + slug** — hierarchical content:
+```json
+{ "types": ["article"], "basePath": "/docs", "mode": "parentSlug", "parentType": "docsNavSection", "parentRelationship": "parentReferencesChild" }
+```
+
+**Custom GROQ** — anything else:
+```json
+{ "types": ["article"], "basePath": "/docs", "mode": "custom", "pathExpression": "coalesce(*[_type == \"docsNavSection\" && references(^._id)][0].slug.current + \"/\", \"\") + slug.current" }
+```
 
 ### Full example
 
@@ -401,291 +217,268 @@ The route config is a document in the Content Lake with type `routes.config`. It
     { "name": "preview", "url": "https://*.sanity.dev" }
   ],
   "routes": [
-    {
-      "types": ["blogPost"],
-      "basePath": "/blog",
-      "mode": "simpleSlug",
-      "pathExpression": "slug.current"
-    },
-    {
-      "types": ["article"],
-      "basePath": "/docs",
-      "mode": "parentSlug",
-      "parentType": "docsNavSection",
-      "parentRelationship": "parentReferencesChild",
-      "pathExpression": "coalesce(*[_type == \"docsNavSection\" && references(^._id)][0].slug.current + \"/\", \"\") + slug.current"
-    },
-    {
-      "types": ["product"],
-      "basePath": "/products",
-      "mode": "simpleSlug",
-      "pathExpression": "slug[_key == $locale][0].value",
-      "locales": ["en", "fr", "de"],
-      "baseUrls": [
-        { "name": "production", "url": "https://shop.sanity.io", "isDefault": true }
-      ]
-    },
-    {
-      "types": ["page"],
-      "basePath": "/",
-      "mode": "simpleSlug",
-      "pathExpression": "slug.current"
-    }
+    { "types": ["blogPost"], "basePath": "/blog", "mode": "simpleSlug", "pathExpression": "slug.current" },
+    { "types": ["article"], "basePath": "/docs", "mode": "parentSlug", "parentType": "docsNavSection", "parentRelationship": "parentReferencesChild" },
+    { "types": ["product"], "basePath": "/products", "mode": "simpleSlug", "pathExpression": "slug[_key == $locale][0].value", "locales": ["en", "fr", "de"] },
+    { "types": ["page"], "basePath": "/", "mode": "simpleSlug", "pathExpression": "slug.current" }
   ]
 }
 ```
 
-### Route modes
-
-| Mode | When to use | GROQ knowledge needed |
-|------|------------|----------------------|
-| `simpleSlug` | Document has a `slug` field, URL is `basePath + slug` | None |
-| `parentSlug` | URL includes a parent segment (e.g., section/article) | None — the resolver builds the GROQ |
-| `custom` | Complex URL logic that doesn't fit the above | Yes — you write the GROQ expression |
-
 ### Channel concept
 
-A "channel" represents a distinct URL namespace. Most projects have one (`web`). If you have separate sites (marketing site, docs site, developer portal), each gets its own channel with its own route config.
+A "channel" represents a distinct URL namespace. Most projects have one (`web`). For single-channel projects, the resolver auto-detects:
+
+```ts
+const resolver = createRouteResolver(client) // finds the only routes.config automatically
+```
 
 ---
 
 ## Resolver API
 
+Import from `@sanity/routes` — the main entry point is RSC-safe with zero React dependencies.
+
 ### `createRouteResolver(client, channel?, options?)`
 
-Creates a resolver instance. Channel is optional — if your project has a single `routes.config` document, the resolver finds it automatically.
+Creates a resolver instance. Returns `RealtimeRouteResolver` by default, or `StaticRouteResolver` with `{ mode: 'static' }`. Channel is optional — if your project has a single `routes.config` document, the resolver finds it automatically.
 
 ```ts
-import { createRouteResolver } from '@sanity/routes/resolver'
+import { createRouteResolver } from '@sanity/routes'
 import { createClient } from '@sanity/client'
 
 const client = createClient({
-  projectId: 'bb8k7pej',
+  projectId: 'your-project-id',
   dataset: 'production',
   useCdn: true,
   apiVersion: '2024-01-01',
 })
 
-// Explicit channel
+// Realtime mode (default)
+const resolver = createRouteResolver(client, 'web')
+
+// Static mode — enables preload() and resolveDocumentByUrl()
+const staticResolver = createRouteResolver(client, 'web', { mode: 'static' })
+
+// Auto-detect single channel
+const autoResolver = createRouteResolver(client)
+
+// With error handling
 const resolver = createRouteResolver(client, 'web', {
   environment: 'production',
+  warn: process.env.NODE_ENV !== 'production',
+  onResolutionError: (diagnosis) => console.error(diagnosis.message),
 })
-
-// Default channel — finds the only routes.config document automatically
-const resolver = createRouteResolver(client)
-
-// Options as second arg (no channel)
-const resolver = createRouteResolver(client, { mode: 'static' })
 ```
 
-**Parameters:**
+| Option | Type | Description |
+|--------|------|-------------|
+| `mode` | `'realtime' \| 'static'` | Resolution mode. Default: `'realtime'`. |
+| `environment` | `string` | Which base URL to use. Defaults to `isDefault`. |
+| `locale` | `string` | Default locale for `$locale` in pathExpressions. |
+| `warn` | `boolean` | Log to console when resolution returns `null`. |
+| `onResolutionError` | `(error) => void` | Callback on failure. Receives `DiagnosisResult`. |
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `client` | `SanityClient` | A `@sanity/client` instance. No token needed for public datasets. |
-| `channel` | `string` | The channel name matching your `routes.config` document. Optional — omit for single-channel projects. |
-| `options.environment` | `string` | Which base URL environment to use. Defaults to the one marked `isDefault`. |
-| `options.locale` | `string` | Default locale for `$locale` in pathExpressions. Can be overridden per-call. |
+### RealtimeRouteResolver
 
----
+The default resolver. Evaluates GROQ path expressions live.
 
-### `resolver.resolveUrlById(id)`
-
-Resolves a single document ID to its full URL. Uses realtime mode — evaluates the GROQ path expression against live data.
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `resolveUrlById(id, opts?)` | `Promise<string \| null>` | Resolve one document ID to its full URL. |
+| `resolveUrlByIds(ids, opts?)` | `Promise<Map<string, string>>` | Batch resolution. Unresolvable IDs omitted. |
+| `groqField(type)` | `Promise<string>` | GROQ projection fragment for embedding in queries. |
+| `listen()` | `() => void` | Subscribe to config changes. Returns unsubscribe fn. |
+| `diagnose(id, opts?)` | `Promise<DiagnosisResult>` | Debug why resolution fails. |
 
 ```ts
+// Resolve a single URL
 const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 
-const url = await resolver.resolveUrlById('blogPost-announcing-ai')
-// → "https://www.sanity.io/blog/announcing-ai"
+// Embed URL resolution in GROQ queries
+const pathField = await resolver.groqField('article')
+const articles = await client.fetch(`*[_type == "article"]{ _id, title, ${pathField} }`)
+// Each article now has a .path field with the resolved URL path
+
+// Listen for config changes (dev servers, long-running processes)
+const unsubscribe = resolver.listen()
 ```
 
-Returns `null` if the document doesn't match any route.
+### StaticRouteResolver
 
----
+Created with `{ mode: 'static' }`. Has all realtime methods plus:
 
-### `resolver.resolveUrlByIds(ids)`
-
-Batch resolution. Resolves multiple document IDs in a single operation.
-
-```ts
-const urls = await resolver.resolveUrlByIds([
-  'article-agent-context',
-  'article-getting-started',
-  'blogPost-announcing-ai',
-])
-// → Map {
-//     'article-agent-context' => 'https://www.sanity.io/docs/ai/agent-context',
-//     'article-getting-started' => 'https://www.sanity.io/docs/getting-started',
-//     'blogPost-announcing-ai' => 'https://www.sanity.io/blog/announcing-ai',
-//   }
-```
-
----
-
-### `resolver.preload()`
-
-Loads the entire pre-computed route map. Returns a synchronous `Map<string, string>` for instant lookups. Uses static mode.
-
-```ts
-const urlMap = await resolver.preload()
-
-// Sync lookups — no await needed
-urlMap.get('article-agent-context')
-// → "https://www.sanity.io/docs/ai/agent-context"
-
-urlMap.get('nonexistent-doc')
-// → undefined
-```
-
-**Note:** Only available in static mode. Create the resolver with `mode: 'static'`.
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `preload(opts?)` | `Promise<Map<string, string>>` | Load all shards for synchronous lookups. |
+| `rebuildType(type, opts?)` | `Promise<void>` | Rebuild a type's route map shard. |
+| `resolveDocumentByUrl(url)` | `Promise<{ id, type } \| null>` | Reverse resolution — URL → document. |
 
 ```ts
 const staticResolver = createRouteResolver(client, 'web', { mode: 'static' })
 const urlMap = await staticResolver.preload()
+urlMap.get('article-agent-context') // → "https://www.sanity.io/docs/ai/agent-context"
 
-// Sitemap generation
-const urlMap = await staticResolver.preload()
-const sitemap = Array.from(urlMap.entries()).map(([id, url]) => ({
-  url,
-  lastmod: new Date().toISOString(),
-}))
-```
-
----
-
-### `resolver.groqField(type)`
-
-Returns a GROQ expression fragment that resolves the URL path for a given document type. Interpolate it into any GROQ query.
-
-```ts
-const pathField = await resolver.groqField('article')
-
-const articles = await client.fetch(
-  `*[_type == "article"]{
-    _id,
-    title,
-    "publishedAt": _createdAt,
-    ${pathField}
-  }`
-)
-
-// Result:
-// [
-//   { _id: "article-agent-context", title: "Agent Context", path: "/docs/ai/agent-context", publishedAt: "..." },
-//   { _id: "article-getting-started", title: "Getting Started", path: "/docs/getting-started", publishedAt: "..." },
-// ]
-```
-
-The returned field name is `path` by default. The expression is built from the route config — you don't need to know what GROQ it generates.
-
----
-
-### `resolver.listen()`
-
-Subscribe to route config changes. Invalidates the resolver's internal cache when the config document changes. Returns an unsubscribe function.
-
-```ts
-// Start listening — resolver cache auto-invalidates on config changes
-const unsubscribe = resolver.listen()
-
-// Clean up when done
-unsubscribe()
-```
-
----
-
-### `resolver.resolveDocumentByUrl(url)`
-
-Reverse resolution — given a full URL, find the document that owns it. Static mode only.
-
-```ts
-const result = await resolver.resolveDocumentByUrl('https://www.sanity.io/docs/ai/agent-context')
+const doc = await staticResolver.resolveDocumentByUrl('/docs/ai/agent-context')
 // → { id: 'article-agent-context', type: 'article' }
 ```
 
-Returns `null` if no document matches the URL. Useful for MCP tools, incoming webhook handlers, and any context where you have a URL and need the source document.
+### `diagnose()`
+
+When `resolveUrlById` returns `null`, use `diagnose()` to find out why. Returns one of 6 statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `resolved` | URL resolved successfully. |
+| `document_not_found` | No document exists with this ID. |
+| `no_route_entry` | Document exists but its type has no route config. |
+| `empty_path` | Route matched but pathExpression evaluated to null/empty. |
+| `no_config` | No `routes.config` found for the channel. |
+| `shard_not_found` | (Static mode) No shard built yet for this type. |
+
+```ts
+const result = await resolver.diagnose('my-doc')
+if (result.status !== 'resolved') {
+  console.warn(result.message)
+  // "No route entry for type "article". Available routable types: blogPost, page."
+}
+if (result.status === 'no_route_entry') {
+  console.log(result.availableRoutes) // ['blogPost', 'page']
+}
+```
+
+### Three-layer error handling
+
+1. **Silent `null`** — Default. No noise in production.
+2. **`warn: true`** — Console logging for development:
+   ```ts
+   createRouteResolver(client, 'web', { warn: process.env.NODE_ENV !== 'production' })
+   ```
+3. **`onResolutionError`** — Callback with `DiagnosisResult` for error tracking:
+   ```ts
+   createRouteResolver(client, 'web', { onResolutionError: (d) => sentry.captureMessage(d.message) })
+   ```
+4. **`diagnose()`** — On-demand deep inspection for debugging specific documents.
 
 ---
 
-## Studio Setup
+## Integration Guides
 
-### 1. Install the plugin
+### Next.js
+
+The resolver is RSC-safe — import directly in Server Components.
 
 ```ts
-// sanity.config.ts
-import { defineConfig } from 'sanity'
-import { routesPlugin } from '@sanity/routes/plugin'
-
-export default defineConfig({
-  name: 'default',
-  title: 'My Studio',
-  projectId: 'your-project-id',
-  dataset: 'production',
-
-  plugins: [
-    routesPlugin(),
-  ],
-})
+// lib/routes.ts
+import { createRouteResolver } from '@sanity/routes'
+import { client } from './sanity.client'
+export const routeResolver = createRouteResolver(client, 'web')
 ```
 
-This registers the `routes.config` and `routes.map` schema types. You can now create and edit route config documents in the Studio.
+```tsx
+// app/blog/page.tsx
+import { routeResolver } from '@/lib/routes'
 
-### 2. Presentation tool integration
+export default async function BlogIndex() {
+  const pathField = await routeResolver.groqField('blogPost')
+  const posts = await client.fetch(
+    `*[_type == "blogPost"] | order(publishedAt desc) { _id, title, excerpt, ${pathField} }`
+  )
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post._id}><a href={post.path}>{post.title}</a><p>{post.excerpt}</p></li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### Portable Text
+
+Use `preload()` to load all routes once, then resolve synchronously.
+
+```tsx
+const resolver = createRouteResolver(client, 'web', { mode: 'static' })
+
+export async function PortableTextBody({ slug }) {
+  const [post, urlMap] = await Promise.all([
+    client.fetch(`*[_type == "blogPost" && slug.current == $slug][0]`, { slug }),
+    resolver.preload(),
+  ])
+  const components = {
+    marks: {
+      internalLink: ({ value, children }) => {
+        const url = urlMap.get(value.reference._ref)
+        return url ? <a href={url}>{children}</a> : <span>{children}</span>
+      },
+    },
+  }
+  return <PortableText value={post.body} components={components} />
+}
+```
+
+The `Promise.all` pattern loads the route map in parallel with your content query — no waterfall.
+
+### Presentation Tool
+
+`routesPresentation()` auto-generates `resolve.locations` and `resolve.mainDocuments` from the route config.
 
 ```ts
 // sanity.config.ts
-import { defineConfig } from 'sanity'
 import { presentationTool } from 'sanity/presentation'
-import { routesPlugin, routesPresentation } from '@sanity/routes/plugin'
+import { routesPlugin } from '@sanity/routes/studio'
+import { routesPresentation } from '@sanity/routes'
 
 export default defineConfig({
   plugins: [
     routesPlugin(),
     presentationTool({
       resolve: routesPresentation('web'),
-      previewUrl: {
-        previewMode: {
-          enable: '/api/draft-mode/enable',
-        },
-      },
+      previewUrl: { previewMode: { enable: '/api/draft-mode/enable' } },
     }),
   ],
 })
 ```
 
-`routesPresentation('web')` reads the route config for the `web` channel and generates:
+> Set `SANITY_STUDIO_PREVIEW_ORIGIN` env var on your Studio deployment pointing to your frontend URL. Without it, Presentation defaults to `http://localhost:3000`.
 
-- **`resolve.locations`** — Maps each document type to its URL pattern. The Presentation tool uses this to show "Open in preview" links.
-- **`resolve.mainDocuments`** — Maps URL patterns back to document types. The Presentation tool uses this to find the right document when navigating by URL.
+### Sitemaps
 
-When you add a new type to the route config, it automatically appears in the Presentation tool. No code change needed.
+```ts
+// app/sitemap.xml/route.ts
+import { createRouteResolver } from '@sanity/routes'
+const resolver = createRouteResolver(client, 'web', { mode: 'static' })
 
-> **Important:** Set `SANITY_STUDIO_PREVIEW_ORIGIN` as an environment variable on your Studio deployment. Without it, the Presentation tool defaults to `http://localhost:3000`.
->
-> For Vercel: Add the env var in your Studio project settings pointing to your Next.js frontend URL.
+export async function GET() {
+  const urlMap = await resolver.preload()
+  const urls = Array.from(urlMap.values()).map((url) => `<url><loc>${url}</loc></url>`).join('\n')
+  return new Response(
+    `<?xml version="1.0"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`,
+    { headers: { 'Content-Type': 'application/xml' } }
+  )
+}
+```
 
 ---
 
-## Sync Function
+## Advanced Topics
 
-The static route map is kept in sync by a Sanity Function. Publish a document → route map updates within seconds. No cron jobs, no manual rebuilds.
+### Sync Function
 
-### Setup — 3 files, ~9 lines total
+The static route map is kept in sync by a Sanity Function. Publish a document → route map updates within seconds.
 
 ```ts
 // studio/functions/route-sync-web/index.ts
-import { createRouteSyncHandler } from '@sanity/routes'
-
+import { createRouteSyncHandler } from '@sanity/routes/handler'
 export const handler = createRouteSyncHandler('web')
 ```
 
 ```ts
 // studio/functions/route-sync-web/function.ts
 import { defineDocumentFunction } from '@sanity/blueprints'
-import { defineRouteSyncBlueprint } from '@sanity/routes'
-
+import { defineRouteSyncBlueprint } from '@sanity/routes/handler'
 export const routeSyncFunction = defineDocumentFunction(
   defineRouteSyncBlueprint('web', { types: ['blogPost', 'article', 'docsNavSection'] })
 )
@@ -695,481 +488,131 @@ export const routeSyncFunction = defineDocumentFunction(
 // studio/sanity.blueprint.ts
 import { defineBlueprint } from '@sanity/blueprints'
 import { routeSyncFunction } from './functions/route-sync-web/function'
-
-export default defineBlueprint({
-  resources: [routeSyncFunction],
-})
+export default defineBlueprint({ resources: [routeSyncFunction] })
 ```
 
-The package owns all the complexity — route config lookup, pathExpression evaluation, shard management, atomic upserts, and parent-change cascade. Deploy with:
+Deploy: `cd studio && pnpx sanity blueprints deploy`
 
-```bash
-cd studio
-pnpx sanity blueprints deploy
-```
+On publish, the handler reads the route config, evaluates the `pathExpression`, and upserts the route map shard. On delete, removes the entry. On parent change, cascades to re-sync all children.
 
-### What it does under the hood
+**Design decisions:** Recursion-safe (`routes.map` never matches the filter). Draft-safe (only fires on publish). Atomic upserts (`createIfNotExists` + `unset` + `insert`).
 
-When a routable document is created, updated, or deleted, `createRouteSyncHandler` does the following:
+### i18n / Localized URLs
 
-1. **Reads the route config** from the Content Lake to find the matching route entry for the document's type
-2. **Evaluates the `pathExpression`** GROQ against the document to resolve its URL path
-3. **Upserts the route map shard** using a single-transaction pattern:
-   - `createIfNotExists` — ensures the shard document exists
-   - `unset` by `_key` — removes the old entry if present
-   - `insert` — adds the new entry with the resolved path
-4. **On delete** — removes the entry from the shard
-5. **Parent cascade** — when a parent document changes (e.g., `docsNavSection` slug), finds all child documents that reference it and re-syncs their paths
-
-### Testing and monitoring
-
-```bash
-# Test with a specific document
-pnpx sanity functions test route-sync-web --document-id article-installation --event update
-
-# View logs
-pnpx sanity functions logs route-sync-web
-```
-
-### Design decisions
-
-**Recursion-safe.** Route map documents have type `routes.map` — they never match the Function's filter. No infinite loops.
-
-**Draft-safe by default.** `includeDrafts: false` is the default — the Function only fires when documents are published, not on every keystroke in the Studio.
-
-**Single-transaction upsert.** The `createIfNotExists` + `unset` + `insert` pattern is atomic. No race conditions between concurrent publishes. `autoGenerateArrayKeys` handles key generation.
-
-**`_key`-based mutations.** Array entry removal uses `entries[_key=="..."]` instead of nested property filters like `entries[doc._ref=="..."]`. The latter causes parse errors in Sanity's mutation engine.
-
-**Parent cascade.** When a parent type (like `docsNavSection`) changes, the handler detects it via the route config's `parentSlug` mode and re-syncs all child documents. No manual rebuild needed.
-
----
-
-## Frontend Integration
-
-### Next.js with `defineLive`
-
-```ts
-// lib/routes.ts
-import { createRouteResolver } from '@sanity/routes/resolver'
-import { client } from './sanity.client'
-
-export const routeResolver = createRouteResolver(client, 'web')
-```
-
-```tsx
-// app/blog/page.tsx — Server Component
-import { routeResolver } from '@/lib/routes'
-import { client } from '@/lib/sanity.client'
-
-export default async function BlogIndex() {
-  const pathField = await routeResolver.groqField('blogPost')
-
-  const posts = await client.fetch(
-    `*[_type == "blogPost"] | order(publishedAt desc) {
-      _id,
-      title,
-      excerpt,
-      ${pathField}
-    }`
-  )
-
-  return (
-    <ul>
-      {posts.map((post) => (
-        <li key={post._id}>
-          <a href={post.path}>{post.title}</a>
-          <p>{post.excerpt}</p>
-        </li>
-      ))}
-    </ul>
-  )
-}
-```
-
-### Portable Text link resolution
-
-```tsx
-// components/PortableText.tsx
-import { PortableText } from '@portabletext/react'
-import { routeResolver } from '@/lib/routes'
-
-// Load once at the page level
-const urlMap = await routeResolver.preload()
-
-const components = {
-  marks: {
-    internalLink: ({ value, children }) => {
-      const url = urlMap.get(value.reference._ref)
-      if (!url) return <span>{children}</span>
-      return <a href={url}>{children}</a>
-    },
-  },
-}
-
-export function Body({ content }) {
-  return <PortableText value={content} components={components} />
-}
-```
-
-### MCP / AI agent integration
-
-```ts
-// In your MCP tool handler
-import { createRouteResolver } from '@sanity/routes/resolver'
-
-const resolver = createRouteResolver(client, 'web')
-
-async function getDocumentUrl(documentId: string) {
-  const url = await resolver.resolveUrlById(documentId)
-  if (!url) throw new Error(`No route found for document ${documentId}`)
-  return url
-}
-
-// AI agent asks: "What's the URL for the Agent Context article?"
-// MCP resolves: "https://www.sanity.io/docs/ai/agent-context" ✓
-// Not:          "https://www.sanity.io/docs/agent-context"     ✗ (404)
-```
-
----
-
-## i18n / Localized URLs
-
-Route entries can declare supported locales. The `$locale` parameter is available in pathExpressions for field-level i18n:
-
-### Route config with locales
+Route entries declare supported locales. `$locale` is available in pathExpressions:
 
 ```json
-{
-  "types": ["product"],
-  "basePath": "/products",
-  "pathExpression": "slug[_key == $locale][0].value",
-  "locales": ["en", "fr", "de"]
-}
+{ "types": ["product"], "basePath": "/products", "pathExpression": "slug[_key == $locale][0].value", "locales": ["en", "fr", "de"] }
 ```
-
-### Resolving with locale
 
 ```ts
-// Per-call locale
-const url = await resolver.resolveUrlById('product-123', { locale: 'fr' })
-// → "https://www.sanity.io/products/baskets-classiques"
-
-// Default locale at resolver level
-const resolver = createRouteResolver(client, { locale: 'fr' })
-const url = await resolver.resolveUrlById('product-123')
-// → "https://www.sanity.io/products/baskets-classiques"
-
-// Preload for a specific locale
-const frMap = await resolver.preload({ locale: 'fr' })
+await resolver.resolveUrlById('product-123', { locale: 'fr' }) // per-call
+const resolver = createRouteResolver(client, 'web', { locale: 'fr' }) // default
+const frMap = await resolver.preload({ locale: 'fr' }) // locale-specific preload
 ```
 
-### Static mode with locales
+Locale-specific shards are built automatically. For document-level i18n, use `language + "/" + slug.current` as the pathExpression.
 
-Locale-specific shards are built automatically:
-- `routes-web-product-en`
-- `routes-web-product-fr`
-- `routes-web-product-de`
+### Multiple Environments
 
-`rebuildType('product')` rebuilds all locale shards. The Sync Function handles this automatically.
-
-### Document-level i18n
-
-For separate documents per locale (no `internationalizedArray`), no special config needed — use the locale as part of the pathExpression:
-
+```json
+{ "baseUrls": [
+  { "name": "production", "url": "https://www.sanity.io", "isDefault": true },
+  { "name": "staging", "url": "https://staging.sanity.io" },
+  { "name": "preview", "url": "https://*.sanity.dev" }
+]}
 ```
-pathExpression: language + "/" + slug.current
+
+```ts
+const resolver = createRouteResolver(client, 'web', { environment: 'staging' })
+await resolver.resolveUrlById('article-agent-context')
+// → "https://staging.sanity.io/docs/ai/agent-context"
 ```
+
+Preview URLs support wildcards for branch-based deployments.
+
+### Scale Considerations
+
+- **Shard size:** ~200 bytes/entry, ~160K entries/shard. Per-type sharding means most projects never hit limits.
+- **Realtime vs static:** Realtime evaluates GROQ per call (~194ms with parent lookup). Static loads all shards in one query. Use static for >10 URLs.
+- **`preload()` memory:** ~2MB for 10K documents. Negligible for SSR.
+- **Sync throughput:** 3 reads + 1 write per publish. For bulk imports, use `buildRouteMap()`.
+- **Parent fan-out:** Parent change re-syncs children sequentially. Fine for editorial; needs batching for bulk.
 
 ---
 
-## Project Structure
+## Background
+
+### Why This Exists
+
+- **One source of truth** — route config in the Content Lake. Frontends, MCP, Presentation tool, sitemaps all read from the same place.
+- **Correct hierarchical URLs** — path expressions handle cross-document GROQ joins. No more 404s from missing path segments.
+- **AI agents get working links** — MCP resolves through the same system as the frontend.
+- **Zero-token resolution** — public-friendly IDs. Any consumer resolves URLs with just a project ID.
+- **No build-time config** — edit routes in Studio, every consumer picks it up immediately.
+- **Foundation for more** — redirects, sitemaps, link validation each become an afternoon project.
+
+### The Problem
+
+Documents in Sanity don't know their own URLs. A docs article at `/docs/getting-started/installation` gets its `getting-started/` prefix from a navigation section document — a cross-document GROQ join that the article itself knows nothing about. A blog post's URL might depend on its category. A product page might derive its path from a brand hierarchy.
+
+This creates a systemic problem:
+
+- **Every consumer reinvents URL resolution.** Frontend, Studio, Presentation tool, MCP, and Functions all build their own GROQ joins to map document IDs to URLs
+- **Portable Text internal links require per-link resolution** at render time — the link only carries a document `_ref` with no URL information
+- **Content model changes break URL logic silently** across every consumer independently. Rename a slug field, restructure navigation — breakage everywhere.
+- **Sitemaps, redirects, and link validation** all solve the same mapping problem from scratch, with no shared source of truth
+
+Multiple systems solving the same problem. None of them aware of each other. All of them fragile.
+
+> **Future:** Automatic redirects on slug change, cross-document link validation, and link health checks via weak reference queries become straightforward to build on this foundation.
+
+---
+
+## Appendix
+
+### Package Exports
+
+| Entry Point | Import | Use For |
+|-------------|--------|---------|
+| `@sanity/routes` | `import { createRouteResolver } from '@sanity/routes'` | Frontends, API routes, scripts — RSC-safe |
+| `@sanity/routes/studio` | `import { routesPlugin } from '@sanity/routes/studio'` | Studio plugins, schema, components |
+| `@sanity/routes/handler` | `import { createRouteSyncHandler } from '@sanity/routes/handler'` | Sanity Function handlers |
+
+### Project Structure
 
 ```
 url-resolution-poc/
-├── packages/
-│   └── routes/                    # @sanity/routes package
-│       └── src/
-│           ├── index.ts           # Public API exports
-│           ├── plugin.ts          # routesPlugin() — Sanity plugin
-│           ├── schema.ts          # routes.config + routes.map schema types
-│           ├── resolver.ts        # createRouteResolver() — realtime + static
-│           ├── build.ts           # buildRouteMap() — bulk shard generation
-│           ├── blueprint.ts       # defineRouteSyncBlueprint()
-│           ├── types.ts           # Shared TypeScript types
-│           └── components/        # Custom input components
-│               ├── RouteEntryInput.tsx
-│               ├── DocumentTypePicker.tsx
-│               └── PathExpressionField.tsx
+├── packages/routes/src/           # @sanity/routes package
+│   ├── resolver-entry.ts          # Main entry (RSC-safe)
+│   ├── studio-entry.ts            # Studio entry (React)
+│   ├── handler-entry.ts           # Handler entry (Functions)
+│   ├── resolver.ts                # createRouteResolver()
+│   ├── plugin.ts / schema.ts      # Studio plugin + schemas
+│   ├── presentation.ts            # routesPresentation()
+│   ├── build.ts / handler.ts      # Build + sync handler
+│   └── types.ts / components/     # Types + custom inputs
 ├── studio/                        # Sanity Studio + Functions
-│   ├── sanity.config.ts
-│   ├── sanity.blueprint.ts
-│   ├── schemas/                   # article, blogPost, docsNavSection
-│   └── functions/route-sync/      # Sync Function (keeps map updated)
-├── examples/
-│   └── nextjs/                    # Next.js 16 app (semantic HTML)
-│       ├── lib/
-│       │   ├── sanity.ts              # Sanity client
-│       │   ├── routes.ts              # Resolver instances
-│       │   └── live.ts                # defineLive setup
-│       ├── components/
-│       │   ├── PortableTextBody.tsx   # PT renderer with link resolution
-│       │   └── CodeBlock.tsx          # Syntax-highlighted code blocks
-│       └── app/                       # Pages
-├── scripts/                       # Seed content, build map
-├── README.md
+├── examples/nextjs/               # Next.js 16 frontend
 └── package.json                   # pnpm workspaces monorepo
 ```
 
-### Package exports
+### Known Limitations
 
-```json
-{
-  "name": "@sanity/routes",
-  "exports": {
-    "./resolver": "./src/resolver/index.ts",
-    "./plugin": "./src/plugin/index.ts"
-  }
-}
-```
+- **Static mode filter** — `preload()` loads the entire map. No type-scoped loading yet.
+- **No nested routes** — `parentSlug` handles one level. No deep nesting.
+- **Single dataset** — cross-dataset resolution not supported.
+- **Reverse resolution** — linear scan (needs index at 100K+).
 
-`./resolver` — No React dependency. Safe for Server Components, edge functions, Node.js scripts.
-`./plugin` — Depends on `sanity` (and therefore React). Studio-only.
+### Monorepo Development Notes
 
----
+This POC uses pnpm workspaces where `@sanity/routes` is a local package. README examples show the ideal published-package DX. Monorepo workarounds that wouldn't exist in a real project:
 
-## Scale Considerations
+- **Function handler vendoring** — The Sanity Functions bundler can't resolve pnpm workspace symlinks. The sync Function uses a vendored `_handler.js` built from the package source. Published package would be a clean two-liner.
+- **Build before test** — `pnpm build` required before `sanity functions test` or `sanity blueprints deploy`, since the Function references compiled output.
+- **Workspace refs** — `"@sanity/routes": "workspace:*"` → would be `"@sanity/routes": "^1.0.0"` in a real project.
 
-### Route map shard size
-
-Each route map entry is roughly 200 bytes (document reference + path string + key). A single Sanity document can hold up to 32MB, which means **~160,000 entries per shard**. Since shards are per-type (`routes-web-article`, `routes-web-blogPost`), most projects will never hit this limit.
-
-For extreme scale (100K+ documents of a single type), sub-shard by hash prefix: `routes-web-article-0` through `routes-web-article-f`. This isn't implemented in the POC but the architecture supports it.
-
-### Realtime vs static mode performance
-
-**Realtime mode** (`resolveUrlById`) evaluates a GROQ query with a sub-query join per call. Measured at ~194ms for a document with a parent section lookup. Fine for single document resolution, Presentation tool, and MCP lookups. Not ideal for resolving thousands of URLs at once.
-
-**Static mode** (`preload`) loads all route map shards in a single GROQ query. The entire URL map is returned at once — one round-trip regardless of how many documents you have. Use this for:
-- Portable Text link resolution (many links per page)
-- Sitemap generation
-- Bulk redirect computation
-- Any context where you need more than ~10 URLs
-
-### `preload()` memory footprint
-
-`preload()` loads the entire route map into a `Map<string, string>`. For 10,000 documents, that's roughly 2MB in memory — negligible for a server-side render. For 100,000+ documents, consider type-scoped loading (not yet implemented).
-
-### Sync Function throughput
-
-The sync Function fires on each published document change. Each invocation:
-1. Fetches the route config (1 query)
-2. Evaluates the path expression (1 query)
-3. Finds the existing entry key (1 query)
-4. Commits the upsert transaction (1 mutation)
-
-That's 3 reads + 1 write per document change. For bulk publishing (e.g., importing 1,000 documents), use `buildRouteMap()` instead — it batches all documents in a single pass.
-
-### Parent fan-out
-
-When a parent document changes (e.g., a `docsNavSection` slug), the Function re-syncs all child documents. For a section with 50 articles, that's 50 sequential syncs. This is acceptable for editorial workflows (slug changes are rare) but would need batching for bulk operations.
-
----
-
-## Known Limitations
-
-This is a proof of concept. Here's what's not solved yet:
-
-### Static mode filter
-The static route map (`routes.map`) doesn't yet support filtering by document type or path prefix. `preload()` loads the entire map. For very large sites (10k+ documents), this may need pagination or type-scoped loading.
-
-### No nested routes
-Routes are flat — `basePath` + resolved path. There's no support for deeply nested route trees (e.g., `/docs/section/subsection/article`). The `parentSlug` mode handles one level of nesting.
-
-### Single dataset
-The resolver assumes one dataset. Cross-dataset route resolution isn't supported.
-
-### Reverse resolution performance
-`resolveDocumentByUrl` uses a linear scan of the route map (fine for POC, would need an index for 100K+ docs).
-
----
-
-## What This Enables
-
-The route system is a foundation. Here's what becomes easy to build on top of it — each of these is an afternoon project, not a quarter-long initiative.
-
-### Link Health Checks
-
-The route map uses weak references. When a document is deleted, its `_ref` dangles — and you can query for that:
-
-```groq
-// Find all stale route entries (document was deleted but entry remains)
-*[_type == "routes.map"]{
-  _id,
-  "staleEntries": entries[!defined(doc->)]{ path, doc }
-}[count(staleEntries) > 0]
-```
-
-A scheduled Function runs this daily, flags stale entries, and optionally generates redirects. No separate deletion tracking — just query for dangling refs.
-
-### Automatic Redirects
-
-When a slug changes, the sync Function can detect the old path and create a redirect:
-
-```ts
-// In the sync handler, before updating the entry:
-const oldEntry = shard.entries.find(e => e.doc._ref === docId)
-if (oldEntry && oldEntry.path !== newPath) {
-  await client.create({
-    _type: 'routes.redirect',
-    channel: 'web',
-    fromPath: `${basePath}/${oldEntry.path}`,
-    toPath: `${basePath}/${newPath}`,
-    createdAt: new Date().toISOString(),
-  })
-}
-```
-
-The frontend or CDN reads `routes.redirect` documents to serve 301s. Content editors rename slugs freely — redirects happen automatically.
-
-### Sitemap Generation
-
-`preload()` gives you every URL in one query:
-
-```ts
-const resolver = createRouteResolver(client, 'web', { mode: 'static' })
-const urlMap = await resolver.preload()
-
-const sitemap = Array.from(urlMap.entries()).map(([id, url]) => ({
-  loc: url,
-  lastmod: new Date().toISOString(),
-}))
-// → Write to sitemap.xml
-```
-
-A CI job or scheduled Function generates `sitemap.xml` from the route map. Always in sync with published content. No crawling required.
-
-### Cross-Document Link Validation
-
-Portable Text internal links carry `_ref` IDs. Combined with the route map, you can validate every internal link across your entire content corpus:
-
-```groq
-// Find all PT internal links and check if they resolve to a route
-*[defined(body)]{
-  _id,
-  title,
-  "brokenLinks": body[].markDefs[_type == "internalLink"]{
-    "targetId": reference._ref,
-    "hasRoute": count(
-      *[_type == "routes.map" && ^.reference._ref in entries[].doc._ref]
-    ) > 0
-  }[!hasRoute]
-}[count(brokenLinks) > 0]
-```
-
-Run this as a validation rule, a scheduled check, or a CI gate. Catch broken internal links before they reach production.
-
-### MCP / AI Agent Integration
-
-The MCP's `linkResolver` can use the same system as the frontend — no separate URL logic:
-
-```ts
-// In your MCP tool handler
-import { createRouteResolver } from '@sanity/routes/resolver'
-
-const resolver = createRouteResolver(client, 'web')
-
-async function getDocumentUrl(documentId: string) {
-  const url = await resolver.resolveUrlById(documentId)
-  if (!url) throw new Error(`No route found for ${documentId}`)
-  return url
-}
-
-// AI agent asks: "What's the URL for the Agent Context article?"
-// MCP resolves: "https://www.sanity.io/docs/ai/agent-context" ✓
-// Not:          "https://www.sanity.io/docs/agent-context"     ✗ (404)
-```
-
-Zero-token resolution means the MCP doesn't need credentials to resolve URLs on public datasets.
-
-### Multi-Channel Publishing
-
-Same document, different URLs per channel. Each channel gets its own route config:
-
-```json
-[
-  {
-    "_type": "routes.config",
-    "channel": "web",
-    "routes": [{ "types": ["article"], "basePath": "/docs" }]
-  },
-  {
-    "_type": "routes.config",
-    "channel": "mobile",
-    "routes": [{ "types": ["article"], "basePath": "/m/docs" }]
-  }
-]
-```
-
-```ts
-const webResolver = createRouteResolver(client, 'web')
-const mobileResolver = createRouteResolver(client, 'mobile')
-
-await webResolver.resolveUrlById('article-installation')
-// → "https://www.sanity.io/docs/getting-started/installation"
-
-await mobileResolver.resolveUrlById('article-installation')
-// → "https://m.sanity.io/m/docs/getting-started/installation"
-```
-
-The content team publishes once. URLs adapt per platform.
-
----
-
-## Sanity Project
-
-This POC runs against a real Sanity project with production content:
-
-| | |
-|---|---|
-| **Project ID** | `bb8k7pej` |
-| **Dataset** | `production` |
-| **Studio** | Included in `apps/studio/` |
-
-The dataset is public — you can test the resolver without any credentials:
-
-```ts
-const client = createClient({
-  projectId: 'bb8k7pej',
-  dataset: 'production',
-  useCdn: true,
-  apiVersion: '2024-01-01',
-})
-```
-
----
-
-## Monorepo Development Notes
-
-This POC is a pnpm monorepo where `@sanity/routes` is a local package. The README examples show the ideal DX — importing from `@sanity/routes` as a published npm package. The monorepo setup has some workarounds that wouldn't exist in a real project:
-
-**Function handler vendoring.** The Sanity Functions bundler can't resolve pnpm workspace symlinks. The sync Function uses a vendored copy of the handler (`_handler.js`) built from the package source. In a real project with `@sanity/routes` installed from npm, the handler is a clean two-liner:
-
-```ts
-// Ideal DX (published package)
-import { createRouteSyncHandler } from '@sanity/routes'
-export const handler = createRouteSyncHandler('web')
-
-// Monorepo workaround (this repo)
-import { createRouteSyncHandler } from './_handler.js'
-export const handler = createRouteSyncHandler('web')
-```
-
-**Build before test/deploy.** The package must be built (`pnpm build`) before running `sanity functions test` or `sanity blueprints deploy`, since the Function references the compiled output. The `pnpm rebuild` script handles this — it cleans, builds the package, and copies the handler into the Function directory.
-
-**Workspace references.** The studio's `package.json` uses `"@sanity/routes": "workspace:*"`. In a real project, this would be a versioned npm dependency like `"@sanity/routes": "^1.0.0"`.
-
-In a real project, you'd `pnpm add @sanity/routes` and all the imports work without any build steps or vendoring.
+In a real project, you'd `pnpm add @sanity/routes` and all imports work without build steps or vendoring.
 
 ---
 
