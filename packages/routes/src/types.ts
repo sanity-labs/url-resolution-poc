@@ -281,8 +281,10 @@ export interface BaseRouteResolver {
    * @example
    * ```ts
    * const pathExpr = await resolver.groqField('blogPost')
-   * const posts = await client.fetch(`*[_type == "blogPost"]{ title, ${pathExpr} }`)
-   * // → [{ title: "Hello", path: "hello-world" }]
+   * const posts = await client.fetch(
+   *   `*[_type == "blogPost"]{ _id, title, ${pathExpr} }`
+   * )
+   * // → [{ _id: "blog-1", title: "Hello", path: "hello-world" }]
    * ```
    */
   groqField(type: string): Promise<string>
@@ -381,8 +383,14 @@ export interface StaticRouteResolver extends BaseRouteResolver {
    *   resolver.preload(),
    * ])
    *
-   * // Synchronous lookup in PT renderer
-   * const url = urlMap.get(markDef.reference._ref)
+   * // Synchronous lookup in Portable Text renderer — no async, no waterfall
+   * const components = {
+   *   marks: {
+   *     internalLink: ({ value, children }) => (
+   *       <a href={urlMap.get(value.reference._ref) ?? '#'}>{children}</a>
+   *     ),
+   *   },
+   * }
    * ```
    */
   preload(options?: LocaleOptions): Promise<Map<string, string>>
@@ -455,9 +463,14 @@ export interface RealtimeRouteResolver extends BaseRouteResolver {
    *
    * @example
    * ```ts
+   * // In a dev server or long-running process
    * const unsubscribe = resolver.listen()
-   * // ... later
-   * unsubscribe()
+   *
+   * // Clean up on shutdown
+   * process.on('SIGTERM', () => {
+   *   unsubscribe()
+   *   process.exit(0)
+   * })
    * ```
    */
   listen(): () => void
@@ -528,9 +541,9 @@ export interface ResolverOptions {
   locale?: string
 
   /**
-   * Log a warning to console when {@link BaseRouteResolver.resolveUrlById} returns `null`.
-   * Calls {@link BaseRouteResolver.diagnose} internally to generate the warning message.
-   * Set to `process.env.NODE_ENV !== 'production'` for development-only warnings.
+   * Log a diagnostic message to console when {@link BaseRouteResolver.resolveUrlById}
+   * returns `null`. Set to `process.env.NODE_ENV !== 'production'` for
+   * development-only warnings.
    */
   warn?: boolean
 

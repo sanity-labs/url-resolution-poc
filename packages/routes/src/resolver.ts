@@ -41,7 +41,7 @@ const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
  * const urlMap = await staticResolver.preload()
  *
  * // With environment matching and dev warnings
- * const resolver = createRouteResolver(client, 'web', {
+ * const devResolver = createRouteResolver(client, 'web', {
  *   environment: process.env.SANITY_ROUTES_ENV,
  *   warn: process.env.NODE_ENV !== 'production',
  * })
