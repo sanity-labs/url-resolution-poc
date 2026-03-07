@@ -248,6 +248,14 @@ export function createRouteResolver(
     return cleaned.length > 1 ? cleaned.replace(/\/+$/, '') : cleaned
   }
 
+  function extractPathname(url: string): string | null {
+    try {
+      return new URL(url).pathname
+    } catch {
+      return null
+    }
+  }
+
   // ─── Resolution failure handler ─────────────────────────────────
 
   async function handleResolutionFailure(
@@ -418,22 +426,15 @@ export function createRouteResolver(
       async resolvePathById(id: string, options?: LocaleOptions): Promise<string | null> {
         const url = await realtimeResolver.resolveUrlById(id, options)
         if (!url) return null
-        try {
-          return new URL(url).pathname
-        } catch {
-          return null
-        }
+        return extractPathname(url)
       },
 
       async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
         const urlMap = await realtimeResolver.resolveUrlByIds(ids, options)
         const result = new Map<string, string>()
         for (const [id, url] of urlMap) {
-          try {
-            result.set(id, new URL(url).pathname)
-          } catch {
-            // skip invalid URLs
-          }
+          const pathname = extractPathname(url)
+          if (pathname) result.set(id, pathname)
         }
         return result
       },
@@ -660,22 +661,15 @@ export function createRouteResolver(
     async resolvePathById(id: string, options?: LocaleOptions): Promise<string | null> {
       const url = await staticResolver.resolveUrlById(id, options)
       if (!url) return null
-      try {
-        return new URL(url).pathname
-      } catch {
-        return null
-      }
+      return extractPathname(url)
     },
 
     async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
       const urlMap = await staticResolver.resolveUrlByIds(ids, options)
       const result = new Map<string, string>()
       for (const [id, url] of urlMap) {
-        try {
-          result.set(id, new URL(url).pathname)
-        } catch {
-          // skip invalid URLs
-        }
+        const pathname = extractPathname(url)
+        if (pathname) result.set(id, pathname)
       }
       return result
     },
