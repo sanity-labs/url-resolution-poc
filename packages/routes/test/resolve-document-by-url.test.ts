@@ -7,7 +7,7 @@ const Q_CONFIG_BY_CHANNEL = `*[_type == "routes.config" && channel == $channel][
 const Q_ALL_SHARDS = `*[_id in $shardIds]`
 
 describe('resolveDocumentByUrl', () => {
-  function makeStaticResolver(shards = [BLOG_SHARD, ARTICLE_SHARD]) {
+  function makeResolver(shards = [BLOG_SHARD, ARTICLE_SHARD]) {
     const client = createMockClient([
       {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
       {
@@ -16,41 +16,41 @@ describe('resolveDocumentByUrl', () => {
         result: shards,
       },
     ])
-    return createRouteResolver(client, 'web', {mode: 'static'})
+    return createRouteResolver(client, 'web')
   }
 
   it('exact match — full URL', async () => {
-    const resolver = makeStaticResolver()
+    const resolver = makeResolver()
     const result = await resolver.resolveDocumentByUrl('https://www.example.com/blog/hello-world')
     expect(result).toEqual({id: 'blog-hello', type: 'blogPost'})
   })
 
   it('returns null when no match', async () => {
-    const resolver = makeStaticResolver()
+    const resolver = makeResolver()
     const result = await resolver.resolveDocumentByUrl('https://www.example.com/blog/nonexistent')
     expect(result).toBeNull()
   })
 
   it('trailing slash tolerance', async () => {
-    const resolver = makeStaticResolver()
+    const resolver = makeResolver()
     const result = await resolver.resolveDocumentByUrl('https://www.example.com/blog/hello-world/')
     expect(result).toEqual({id: 'blog-hello', type: 'blogPost'})
   })
 
   it('path-only input', async () => {
-    const resolver = makeStaticResolver()
+    const resolver = makeResolver()
     const result = await resolver.resolveDocumentByUrl('/blog/hello-world')
     expect(result).toEqual({id: 'blog-hello', type: 'blogPost'})
   })
 
   it('query params stripped', async () => {
-    const resolver = makeStaticResolver()
+    const resolver = makeResolver()
     const result = await resolver.resolveDocumentByUrl('https://www.example.com/blog/hello-world?utm_source=test')
     expect(result).toEqual({id: 'blog-hello', type: 'blogPost'})
   })
 
   it('resolves article with nested path', async () => {
-    const resolver = makeStaticResolver()
+    const resolver = makeResolver()
     const result = await resolver.resolveDocumentByUrl('/docs/getting-started/setup')
     expect(result).toEqual({id: 'article-setup', type: 'article'})
   })

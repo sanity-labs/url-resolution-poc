@@ -1,108 +1,62 @@
 import type {SanityClient} from '@sanity/client'
 import type {
-  StaticRouteResolver,
-  RealtimeRouteResolver,
+  RouteResolver,
   RoutesConfig,
   RouteEntry,
   RouteMapShard,
   LocaleOptions,
   DiagnosisResult,
+  ResolverOptions,
 } from './types.js'
 
 const DEFAULT_PATH_EXPRESSION = 'slug.current'
 const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
 
 /**
- * Create a route resolver for URL resolution from Sanity documents.
+ * Create a unified route resolver for URL resolution from Sanity documents.
  *
- * Returns a {@link RealtimeRouteResolver} by default (evaluates GROQ live).
- * Pass `{ mode: 'static' }` to get a {@link StaticRouteResolver} that reads
- * from pre-computed route map shards.
+ * Returns a {@link RouteResolver} with all methods — both realtime GROQ evaluation
+ * (`resolveUrlById`, `pathProjection`, `listen`, etc.) and static shard lookups
+ * (`preload`, `resolveDocumentByUrl`, `rebuildType`).
  *
- * @param client - A configured `SanityClient`. For static mode with private shard IDs,
- *   the client must have a read token.
- * @param channel - Route config channel name (e.g., `'web'`). Optional — when omitted,
- *   uses the config marked `isDefault: true`, or the only config if exactly one exists.
- * @param options - Resolver options including mode, environment, and error handling.
- * @returns A typed resolver — {@link RealtimeRouteResolver} or {@link StaticRouteResolver}
- *   depending on the `mode` option.
+ * @param client - A configured `SanityClient`. For shard-based methods (`preload`,
+ *   `resolveDocumentByUrl`) with private shard IDs, the client must have a read token.
+ * @param channelOrOptions - Route config channel name (e.g., `'web'`), or options object.
+ *   Optional — when omitted, uses the config marked `isDefault: true`, or the only
+ *   config if exactly one exists.
+ * @param options - Resolver options including environment and error handling.
+ * @returns A {@link RouteResolver} with all methods.
  *
  * @example
  * ```ts
  * import { createRouteResolver } from '@sanity/routes'
  * import { client } from './sanity'
  *
- * // Realtime (default) — works immediately, no setup
  * const resolver = createRouteResolver(client, 'web')
+ *
+ * // Realtime — evaluates GROQ live, always fresh
  * const url = await resolver.resolveUrlById('article-123')
  *
- * // Static — requires route map shards (from buildRouteMap or sync Function)
- * const staticResolver = createRouteResolver(client, 'web', { mode: 'static' })
- * const urlMap = await staticResolver.preload()
+ * // Static — reads from pre-computed shards (requires buildRouteMap or sync Function)
+ * const urlMap = await resolver.preload()
  *
  * // With environment matching and dev warnings
- * const devResolver = createRouteResolver(client, 'web', {
+ * const resolver = createRouteResolver(client, 'web', {
  *   environment: process.env.SANITY_ROUTES_ENV,
  *   warn: process.env.NODE_ENV !== 'production',
  * })
  * ```
  *
- * @see {@link RealtimeRouteResolver} for realtime-specific methods
- * @see {@link StaticRouteResolver} for static-specific methods
+ * @see {@link RouteResolver} for the full method list
  */
-// Overloads
 export function createRouteResolver(
   client: SanityClient,
-  channel?: string,
-  options?: { mode?: 'realtime'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
-): RealtimeRouteResolver
-export function createRouteResolver(
-  client: SanityClient,
-  channel: string,
-  options: { mode: 'static'; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
-): StaticRouteResolver
-export function createRouteResolver(
-  client: SanityClient,
-  options: { mode: 'static'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
-): StaticRouteResolver
-export function createRouteResolver(
-  client: SanityClient,
-  options: { mode?: 'realtime'; channel?: string; environment?: string; baseUrl?: string; cacheTtl?: number; locale?: string; warn?: boolean; onResolutionError?: (error: DiagnosisResult) => void },
-): RealtimeRouteResolver
-// Implementation signature
-export function createRouteResolver(
-  client: SanityClient,
-  channelOrOptions?: string | {
-    channel?: string
-    mode?: 'realtime' | 'static'
-    environment?: string
-    baseUrl?: string
-    cacheTtl?: number
-    locale?: string
-    warn?: boolean
-    onResolutionError?: (error: DiagnosisResult) => void
-  },
-  options?: {
-    mode?: 'realtime' | 'static'
-    environment?: string
-    baseUrl?: string
-    cacheTtl?: number
-    locale?: string
-    warn?: boolean
-    onResolutionError?: (error: DiagnosisResult) => void
-  },
-): StaticRouteResolver | RealtimeRouteResolver {
+  channelOrOptions?: string | ResolverOptions,
+  options?: ResolverOptions,
+): RouteResolver {
   // Parse overloaded arguments
   let channel: string | undefined
-  let resolvedOptions: {
-    mode?: 'realtime' | 'static'
-    environment?: string
-    baseUrl?: string
-    cacheTtl?: number
-    locale?: string
-    warn?: boolean
-    onResolutionError?: (error: DiagnosisResult) => void
-  }
+  let resolvedOptions: ResolverOptions
 
   if (typeof channelOrOptions === 'string') {
     channel = channelOrOptions
@@ -115,7 +69,7 @@ export function createRouteResolver(
     resolvedOptions = options ?? {}
   }
 
-  const {mode = 'realtime', baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL, locale: defaultLocale, warn: warnOnError, onResolutionError} = resolvedOptions
+  const {baseUrl, environment, cacheTtl = DEFAULT_CACHE_TTL, locale: defaultLocale, warn: warnOnError, onResolutionError} = resolvedOptions
 
   // ─── Locale helper ───────────────────────────────────────────────
   function localeParams(effectiveLocale?: string): Record<string, string> {
@@ -261,10 +215,9 @@ export function createRouteResolver(
   async function handleResolutionFailure(
     id: string,
     options: LocaleOptions | undefined,
-    diagnoseFn: (id: string, options?: LocaleOptions) => Promise<DiagnosisResult>,
   ): Promise<void> {
     if (!warnOnError && !onResolutionError) return
-    const diagnosis = await diagnoseFn(id, options)
+    const diagnosis = await resolver.diagnose(id, options)
     if (warnOnError) {
       console.warn(`[@sanity/routes] ${diagnosis.message}`)
     }
@@ -319,213 +272,8 @@ export function createRouteResolver(
     return {config, docType: docMeta._type, route}
   }
 
-  // ─── Realtime mode implementation ────────────────────────────────
+  // ─── Shard cache (for preload, rebuildType, resolveDocumentByUrl) ─
 
-  if (mode === 'realtime') {
-    const realtimeResolver: RealtimeRouteResolver = {
-      mode: 'realtime' as const,
-
-      async resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null> {
-        const config = await getConfig()
-        const effectiveLocale = options?.locale ?? defaultLocale
-
-        // Determine doc type — fetch if not known
-        const docMeta = await client.fetch<{_type: string} | null>(
-          `*[_id == $id][0]{_type}`,
-          {id},
-        )
-        if (!docMeta) {
-          await handleResolutionFailure(id, options, realtimeResolver.diagnose)
-          return null
-        }
-
-        const route = findRouteEntry(config, docMeta._type)
-        if (!route) {
-          await handleResolutionFailure(id, options, realtimeResolver.diagnose)
-          return null
-        }
-
-        const resolvedBase = resolveBaseUrlForRoute(config, route)
-        const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
-
-        // Evaluate the pathExpression for this specific document
-        // $locale is available in pathExpression when locale is provided
-        const path = await client.fetch<string | null>(
-          `*[_id == $id][0]{\"path\": ${pathExpr}}.path`,
-          {id, ...localeParams(effectiveLocale)},
-        )
-        if (!path) {
-          await handleResolutionFailure(id, options, realtimeResolver.diagnose)
-          return null
-        }
-
-        return assembleUrl(resolvedBase, route.basePath, path)
-      },
-
-      async resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
-        const result = new Map<string, string>()
-        if (ids.length === 0) return result
-
-        const config = await getConfig()
-        const effectiveLocale = options?.locale ?? defaultLocale
-
-        // Fetch types for all IDs in one query
-        const docs = await client.fetch<Array<{_id: string; _type: string}>>(
-          `*[_id in $ids]{_id, _type}`,
-          {ids},
-        )
-
-        // Group by route entry for efficient batch queries
-        const byRoute = new Map<RouteEntry, Array<{_id: string; _type: string}>>()
-        for (const doc of docs) {
-          const route = findRouteEntry(config, doc._type)
-          if (route) {
-            const group = byRoute.get(route) || []
-            group.push(doc)
-            byRoute.set(route, group)
-          }
-        }
-
-        // Evaluate pathExpression per route group
-        for (const [route, groupDocs] of byRoute) {
-          const resolvedBase = resolveBaseUrlForRoute(config, route)
-          const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
-          const groupIds = groupDocs.map((d) => d._id)
-
-          const paths = await client.fetch<Array<{_id: string; path: string}>>(
-            `*[_id in $groupIds]{\"_id\": _id, \"path\": ${pathExpr}}`,
-            {groupIds, ...localeParams(effectiveLocale)},
-          )
-
-          for (const entry of paths) {
-            if (entry.path) {
-              result.set(entry._id, assembleUrl(resolvedBase, route.basePath, entry.path))
-            }
-          }
-        }
-
-        return result
-      },
-
-      async pathProjection(type: string): Promise<string> {
-        const config = await getConfig()
-        const route = findRouteEntry(config, type)
-        if (!route) {
-          throw new Error(`No route entry found for type "${type}" in channel "${config.channel}"`)
-        }
-        // Return a complete GROQ projection field assignment
-        const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
-        return `"path": ${pathExpr}`
-      },
-
-      /** @deprecated Use {@link pathProjection} instead. */
-      async groqField(type: string): Promise<string> {
-        return realtimeResolver.pathProjection(type)
-      },
-
-      async resolvePathById(id: string, options?: LocaleOptions): Promise<string | null> {
-        const url = await realtimeResolver.resolveUrlById(id, options)
-        if (!url) return null
-        return extractPathname(url)
-      },
-
-      async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
-        const urlMap = await realtimeResolver.resolveUrlByIds(ids, options)
-        const result = new Map<string, string>()
-        for (const [id, url] of urlMap) {
-          const pathname = extractPathname(url)
-          if (pathname) result.set(id, pathname)
-        }
-        return result
-      },
-
-      async getRoutableTypes(): Promise<string[]> {
-        const config = await getConfig()
-        const types: string[] = []
-        for (const route of config.routes || []) {
-          for (const t of route.types || []) {
-            if (!types.includes(t)) types.push(t)
-          }
-        }
-        return types
-      },
-
-      async groqFunctions(): Promise<string> {
-        const config = await getConfig()
-        const declarations: string[] = []
-
-        for (const route of config.routes || []) {
-          for (const type of route.types || []) {
-            const fnName = `routes::${type}Path`
-            const id = shardId(config.channel, type)
-            declarations.push(
-              `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
-            )
-          }
-        }
-
-        return declarations.join('\n')
-      },
-
-      listen(): () => void {
-        // Use channel if provided, otherwise listen to all route configs
-        const query = channel
-          ? `*[_type == "routes.config" && channel == $channel]`
-          : `*[_type == "routes.config"]`
-        const params = channel ? {channel} : {}
-
-        const subscription = client
-          .listen(query, params, {includeResult: false})
-          .subscribe({
-            next: () => invalidateCache(),
-            error: (err) => console.error('[@sanity/routes] listen error:', err),
-          })
-
-        return () => subscription.unsubscribe()
-      },
-
-      async diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult> {
-        const base = await diagnoseBase(id)
-        if ('status' in base) return base
-
-        const {config, docType, route} = base
-
-        // 4. Evaluate pathExpression
-        const effectiveLocale = options?.locale ?? defaultLocale
-        const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
-        const path = await client.fetch<string | null>(
-          `*[_id == $id][0]{"path": ${pathExpr}}.path`,
-          {id, ...localeParams(effectiveLocale)},
-        )
-        if (!path) {
-          return {
-            status: 'empty_path',
-            documentId: id,
-            documentType: docType,
-            message: `Path expression "${pathExpr}" returned null/empty for document "${id}" (type: "${docType}").`,
-          }
-        }
-
-        // 5. Everything works
-        const resolvedBase = resolveBaseUrlForRoute(config, route)
-        const url = assembleUrl(resolvedBase, route.basePath, path)
-        return {
-          status: 'resolved',
-          documentId: id,
-          documentType: docType,
-          url,
-          message: `Document "${id}" resolves to ${url}.`,
-        }
-      },
-
-    }
-
-    return realtimeResolver
-  }
-
-  // ─── Static mode implementation ──────────────────────────────────
-
-  // In-memory shard cache for static mode
   let shardCache = new Map<string, RouteMapShard>()
   let shardCacheFetchedAt = 0
 
@@ -560,7 +308,7 @@ export function createRouteResolver(
   }
 
   async function fetchAllShards(config: RoutesConfig, locale?: string): Promise<RouteMapShard[]> {
-    const types = await staticResolver.getRoutableTypes()
+    const types = await resolver.getRoutableTypes()
     const shardIds: string[] = []
 
     for (const t of types) {
@@ -588,30 +336,46 @@ export function createRouteResolver(
     return shards
   }
 
-  const staticResolver: StaticRouteResolver = {
-    mode: 'static' as const,
+  // ─── Unified resolver ────────────────────────────────────────────
+
+  const resolver: RouteResolver = {
+    // --- Realtime methods (use GROQ evaluation) ---
 
     async resolveUrlById(id: string, options?: LocaleOptions): Promise<string | null> {
       const config = await getConfig()
       const effectiveLocale = options?.locale ?? defaultLocale
 
-      // We need to check all shards since we don't know the doc type
-      const types = await staticResolver.getRoutableTypes()
-
-      for (const type of types) {
-        const shard = await fetchShard(config, type, effectiveLocale)
-        if (!shard) continue
-
-        const entry = shard.entries?.find((e) => e.doc._ref === id)
-        if (entry) {
-          const route = findRouteEntry(config, type)
-          const resolvedBase = resolveBaseUrlForRoute(config, route)
-          return assembleUrl(resolvedBase, shard.basePath, entry.path)
-        }
+      // Determine doc type — fetch if not known
+      const docMeta = await client.fetch<{_type: string} | null>(
+        `*[_id == $id][0]{_type}`,
+        {id},
+      )
+      if (!docMeta) {
+        await handleResolutionFailure(id, options)
+        return null
       }
 
-      await handleResolutionFailure(id, options, staticResolver.diagnose)
-      return null
+      const route = findRouteEntry(config, docMeta._type)
+      if (!route) {
+        await handleResolutionFailure(id, options)
+        return null
+      }
+
+      const resolvedBase = resolveBaseUrlForRoute(config, route)
+      const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
+
+      // Evaluate the pathExpression for this specific document
+      // $locale is available in pathExpression when locale is provided
+      const path = await client.fetch<string | null>(
+        `*[_id == $id][0]{"path": ${pathExpr}}.path`,
+        {id, ...localeParams(effectiveLocale)},
+      )
+      if (!path) {
+        await handleResolutionFailure(id, options)
+        return null
+      }
+
+      return assembleUrl(resolvedBase, route.basePath, path)
     },
 
     async resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
@@ -620,27 +384,40 @@ export function createRouteResolver(
 
       const config = await getConfig()
       const effectiveLocale = options?.locale ?? defaultLocale
-      const idSet = new Set(ids)
 
-      const types = await staticResolver.getRoutableTypes()
+      // Fetch types for all IDs in one query
+      const docs = await client.fetch<Array<{_id: string; _type: string}>>(
+        `*[_id in $ids]{_id, _type}`,
+        {ids},
+      )
 
-      for (const type of types) {
-        const shard = await fetchShard(config, type, effectiveLocale)
-        if (!shard) continue
+      // Group by route entry for efficient batch queries
+      const byRoute = new Map<RouteEntry, Array<{_id: string; _type: string}>>()
+      for (const doc of docs) {
+        const route = findRouteEntry(config, doc._type)
+        if (route) {
+          const group = byRoute.get(route) || []
+          group.push(doc)
+          byRoute.set(route, group)
+        }
+      }
 
-        const route = findRouteEntry(config, type)
+      // Evaluate pathExpression per route group
+      for (const [route, groupDocs] of byRoute) {
         const resolvedBase = resolveBaseUrlForRoute(config, route)
+        const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
+        const groupIds = groupDocs.map((d) => d._id)
 
-        for (const entry of shard.entries || []) {
-          if (!entry.doc?._ref) continue
-          if (idSet.has(entry.doc._ref)) {
-            result.set(entry.doc._ref, assembleUrl(resolvedBase, shard.basePath, entry.path))
-            idSet.delete(entry.doc._ref)
+        const paths = await client.fetch<Array<{_id: string; path: string}>>(
+          `*[_id in $groupIds]{"_id": _id, "path": ${pathExpr}}`,
+          {groupIds, ...localeParams(effectiveLocale)},
+        )
+
+        for (const entry of paths) {
+          if (entry.path) {
+            result.set(entry._id, assembleUrl(resolvedBase, route.basePath, entry.path))
           }
         }
-
-        // Early exit if all found
-        if (idSet.size === 0) break
       }
 
       return result
@@ -648,24 +425,28 @@ export function createRouteResolver(
 
     async pathProjection(type: string): Promise<string> {
       const config = await getConfig()
-      // Tier 2 map lookup — returns path from pre-computed shard
-      const id = shardId(config.channel, type)
-      return `"path": *[_id == "${id}"][0].entries[doc._ref == ^._id][0].path`
+      const route = findRouteEntry(config, type)
+      if (!route) {
+        throw new Error(`No route entry found for type "${type}" in channel "${config.channel}"`)
+      }
+      // Return a complete GROQ projection field assignment
+      const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
+      return `"path": ${pathExpr}`
     },
 
     /** @deprecated Use {@link pathProjection} instead. */
     async groqField(type: string): Promise<string> {
-      return staticResolver.pathProjection(type)
+      return resolver.pathProjection(type)
     },
 
     async resolvePathById(id: string, options?: LocaleOptions): Promise<string | null> {
-      const url = await staticResolver.resolveUrlById(id, options)
+      const url = await resolver.resolveUrlById(id, options)
       if (!url) return null
       return extractPathname(url)
     },
 
     async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
-      const urlMap = await staticResolver.resolveUrlByIds(ids, options)
+      const urlMap = await resolver.resolveUrlByIds(ids, options)
       const result = new Map<string, string>()
       for (const [id, url] of urlMap) {
         const pathname = extractPathname(url)
@@ -684,6 +465,76 @@ export function createRouteResolver(
       }
       return types
     },
+
+    async groqFunctions(): Promise<string> {
+      const config = await getConfig()
+      const declarations: string[] = []
+
+      for (const route of config.routes || []) {
+        for (const type of route.types || []) {
+          const fnName = `routes::${type}Path`
+          const id = shardId(config.channel, type)
+          declarations.push(
+            `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
+          )
+        }
+      }
+
+      return declarations.join('\n')
+    },
+
+    async diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult> {
+      const base = await diagnoseBase(id)
+      if ('status' in base) return base
+
+      const {config, docType, route} = base
+
+      // 4. Evaluate pathExpression via realtime GROQ
+      const effectiveLocale = options?.locale ?? defaultLocale
+      const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
+      const path = await client.fetch<string | null>(
+        `*[_id == $id][0]{"path": ${pathExpr}}.path`,
+        {id, ...localeParams(effectiveLocale)},
+      )
+      if (!path) {
+        return {
+          status: 'empty_path',
+          documentId: id,
+          documentType: docType,
+          message: `Path expression "${pathExpr}" returned null/empty for document "${id}" (type: "${docType}").`,
+        }
+      }
+
+      // 5. Everything works
+      const resolvedBase = resolveBaseUrlForRoute(config, route)
+      const url = assembleUrl(resolvedBase, route.basePath, path)
+      return {
+        status: 'resolved',
+        documentId: id,
+        documentType: docType,
+        url,
+        message: `Document "${id}" resolves to ${url}.`,
+      }
+    },
+
+    listen(): () => void {
+      // Use channel if provided, otherwise listen to all route configs
+      const query = channel
+        ? `*[_type == "routes.config" && channel == $channel]`
+        : `*[_type == "routes.config"]`
+      const params = channel ? {channel} : {}
+
+      const subscription = client
+        .listen(query, params, {includeResult: false})
+        .subscribe({
+          next: () => invalidateCache(),
+          error: (err) => console.error('[@sanity/routes] listen error:', err),
+        })
+
+      return () => subscription.unsubscribe()
+    },
+
+    // --- Static methods (use shards) ---
 
     async preload(options?: LocaleOptions): Promise<Map<string, string>> {
       const config = await getConfig()
@@ -706,8 +557,8 @@ export function createRouteResolver(
       if (result.size === 0 && shards.length === 0) {
         console.warn(
           '[@sanity/routes] preload() returned 0 entries. ' +
-          'No route map shards found. Make sure the route map has been built ' +
-          'for this channel with buildRouteMap().'
+          'Route map shards require the Sync Function or buildRouteMap(). ' +
+          'Make sure your Sanity client has a read token if shard IDs contain dots.'
         )
       }
 
@@ -726,7 +577,7 @@ export function createRouteResolver(
       // If route has locales and no specific locale requested, build for all locales
       if (route.locales?.length && !effectiveLocale) {
         for (const loc of route.locales) {
-          await staticResolver.rebuildType(type, {locale: loc})
+          await resolver.rebuildType(type, {locale: loc})
         }
         return
       }
@@ -736,7 +587,7 @@ export function createRouteResolver(
       // Fetch all documents of this type and evaluate pathExpression
       // $locale is available in pathExpression when locale is provided
       const docs = await client.fetch<Array<{_id: string; path: string}>>(
-        `*[_type == $type]{\"_id\": _id, \"path\": ${pathExpr}}`,
+        `*[_type == $type]{"_id": _id, "path": ${pathExpr}}`,
         {type, ...localeParams(effectiveLocale)},
       )
 
@@ -765,23 +616,6 @@ export function createRouteResolver(
 
       // Update cache
       shardCache.set(sid, shard)
-    },
-
-    async groqFunctions(): Promise<string> {
-      const config = await getConfig()
-      const declarations: string[] = []
-
-      for (const route of config.routes || []) {
-        for (const type of route.types || []) {
-          const fnName = `routes::${type}Path`
-          const id = shardId(config.channel, type)
-          declarations.push(
-            `fn ${fnName}($id) = *[_id == "${id}"][0].entries[doc._ref == $id][0].path;`,
-          )
-        }
-      }
-
-      return declarations.join('\n')
     },
 
     async resolveDocumentByUrl(url: string): Promise<{id: string; type: string} | null> {
@@ -823,48 +657,7 @@ export function createRouteResolver(
 
       return null
     },
-
-    async diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult> {
-      const base = await diagnoseBase(id)
-      if ('status' in base) return base
-
-      const {config, docType, route} = base
-
-      // 4. Check shard
-      const effectiveLocale = options?.locale ?? defaultLocale
-      const shard = await fetchShard(config, docType, effectiveLocale)
-      if (!shard) {
-        return {
-          status: 'shard_not_found',
-          documentId: id,
-          documentType: docType,
-          message: `Route map shard not found for type "${docType}". Run buildRouteMap() or the sync handler to create it.`,
-        }
-      }
-
-      // 5. Check entry in shard
-      const entry = shard.entries?.find((e) => e.doc._ref === id)
-      if (!entry || !entry.path) {
-        return {
-          status: 'empty_path',
-          documentId: id,
-          documentType: docType,
-          message: `Document "${id}" (type: "${docType}") exists in the dataset but has no entry in the route map shard. The document may be missing a slug or the sync handler hasn't run yet.`,
-        }
-      }
-
-      // 6. Everything works
-      const resolvedBase = resolveBaseUrlForRoute(config, route)
-      const url = assembleUrl(resolvedBase, shard.basePath, entry.path)
-      return {
-        status: 'resolved',
-        documentId: id,
-        documentType: docType,
-        url,
-        message: `Document "${id}" resolves to ${url}.`,
-      }
-    },
   }
 
-  return staticResolver
+  return resolver
 }

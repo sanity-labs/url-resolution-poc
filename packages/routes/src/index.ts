@@ -32,7 +32,6 @@ export type {
   RouteMapShard,
   RouteMapEntry,
   RouteResolver,
-  ResolverMode,
   ResolverOptions,
   BuildResult,
   BlueprintOptions,

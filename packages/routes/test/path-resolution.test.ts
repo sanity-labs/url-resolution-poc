@@ -2,61 +2,46 @@ import {describe, it, expect} from 'vitest'
 import {createRouteResolver} from '../src/resolver.js'
 import {getPath} from '../src/get-path.js'
 import {createMockClient} from './helpers/mock-client.js'
-import {WEB_CONFIG, BLOG_SHARD, ARTICLE_SHARD} from './helpers/fixtures.js'
+import {WEB_CONFIG} from './helpers/fixtures.js'
 
 const Q_CONFIG_BY_CHANNEL = `*[_type == "routes.config" && channel == $channel][0]`
 const Q_DOC_TYPE = `*[_id == $id][0]{_type}`
 const Q_PATH = (pathExpr: string) => `*[_id == $id][0]{"path": ${pathExpr}}.path`
-const Q_SHARD_FETCH = `*[_id == $shardId][0]`
 
 describe('resolvePathById', () => {
-  describe('realtime mode', () => {
-    it('happy path — returns pathname only', async () => {
-      const client = createMockClient([
-        {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
-        {query: Q_DOC_TYPE, params: {id: 'blog-hello'}, result: {_type: 'blogPost'}},
-        {query: Q_PATH('slug.current'), params: {id: 'blog-hello'}, result: 'hello-world'},
-      ])
-      const resolver = createRouteResolver(client, 'web')
-      const path = await resolver.resolvePathById('blog-hello')
-      expect(path).toBe('/blog/hello-world')
-    })
-
-    it('returns null for missing doc', async () => {
-      const client = createMockClient([
-        {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
-        {query: Q_DOC_TYPE, params: {id: 'nonexistent'}, result: null},
-        // diagnose will also fetch doc type (handleResolutionFailure calls diagnose)
-        {query: Q_DOC_TYPE, params: {id: 'nonexistent'}, result: null},
-      ])
-      const resolver = createRouteResolver(client, 'web', {})
-      const path = await resolver.resolvePathById('nonexistent')
-      expect(path).toBeNull()
-    })
-
-    it('resolves hierarchical path (article with parent)', async () => {
-      const pathExpr = '*[_type == "docsNavSection" && references(^._id)][0].slug.current + "/" + slug.current'
-      const client = createMockClient([
-        {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
-        {query: Q_DOC_TYPE, params: {id: 'article-setup'}, result: {_type: 'article'}},
-        {query: Q_PATH(pathExpr), params: {id: 'article-setup'}, result: 'getting-started/setup'},
-      ])
-      const resolver = createRouteResolver(client, 'web')
-      const path = await resolver.resolvePathById('article-setup')
-      expect(path).toBe('/docs/getting-started/setup')
-    })
+  it('happy path — returns pathname only', async () => {
+    const client = createMockClient([
+      {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
+      {query: Q_DOC_TYPE, params: {id: 'blog-hello'}, result: {_type: 'blogPost'}},
+      {query: Q_PATH('slug.current'), params: {id: 'blog-hello'}, result: 'hello-world'},
+    ])
+    const resolver = createRouteResolver(client, 'web')
+    const path = await resolver.resolvePathById('blog-hello')
+    expect(path).toBe('/blog/hello-world')
   })
 
-  describe('static mode', () => {
-    it('happy path — returns pathname from shard', async () => {
-      const client = createMockClient([
-        {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
-        {query: Q_SHARD_FETCH, params: {shardId: 'routes-web-blogPost'}, result: BLOG_SHARD},
-      ])
-      const resolver = createRouteResolver(client, 'web', {mode: 'static'})
-      const path = await resolver.resolvePathById('blog-hello')
-      expect(path).toBe('/blog/hello-world')
-    })
+  it('returns null for missing doc', async () => {
+    const client = createMockClient([
+      {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
+      {query: Q_DOC_TYPE, params: {id: 'nonexistent'}, result: null},
+      // diagnose will also fetch doc type (handleResolutionFailure calls diagnose)
+      {query: Q_DOC_TYPE, params: {id: 'nonexistent'}, result: null},
+    ])
+    const resolver = createRouteResolver(client, 'web')
+    const path = await resolver.resolvePathById('nonexistent')
+    expect(path).toBeNull()
+  })
+
+  it('resolves hierarchical path (article with parent)', async () => {
+    const pathExpr = '*[_type == "docsNavSection" && references(^._id)][0].slug.current + "/" + slug.current'
+    const client = createMockClient([
+      {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
+      {query: Q_DOC_TYPE, params: {id: 'article-setup'}, result: {_type: 'article'}},
+      {query: Q_PATH(pathExpr), params: {id: 'article-setup'}, result: 'getting-started/setup'},
+    ])
+    const resolver = createRouteResolver(client, 'web')
+    const path = await resolver.resolvePathById('article-setup')
+    expect(path).toBe('/docs/getting-started/setup')
   })
 })
 

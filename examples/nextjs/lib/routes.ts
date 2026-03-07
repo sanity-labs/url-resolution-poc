@@ -1,15 +1,9 @@
-import { createRouteResolver } from '@sanity/routes/resolver'
+import { createRouteResolver } from '@sanity/routes'
 import { client } from './sanity'
 
-// No token needed — route documents use hyphenated IDs (publicly readable)
-// Static mode for PT link resolution via preload()
+// Unified resolver — all methods available on one instance
+// resolveUrlById, pathProjection, listen use realtime GROQ evaluation
+// preload, resolveDocumentByUrl, rebuildType use static shards (lazy loaded)
 export const resolver = createRouteResolver(client, 'web', {
-  mode: 'static',
-  environment: process.env.SANITY_ROUTES_ENV || 'production',
-})
-
-// Realtime mode for dynamic resolution (pathProjection, resolveUrlById)
-export const realtimeResolver = createRouteResolver(client, 'web', {
-  mode: 'realtime',
   environment: process.env.SANITY_ROUTES_ENV || 'production',
 })
