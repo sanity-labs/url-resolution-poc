@@ -46,37 +46,47 @@ export async function buildRouteMap(
     const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
 
     for (const docType of route.types) {
-      try {
-        // Query all documents of this type and evaluate pathExpression
-        const docs = await client.fetch<Array<{_id: string; path: string}>>(
-          `*[_type == $docType]{"_id": _id, "path": ${pathExpr}}`,
-          {docType},
-        )
+      // Determine which locale shards to build
+      const localesToBuild = route.locales?.length ? route.locales : [undefined]
 
-        const validEntries = docs.filter((d) => d.path)
+      for (const locale of localesToBuild) {
+        try {
+          // Query all documents of this type and evaluate pathExpression
+          const docs = await client.fetch<Array<{_id: string; path: string}>>(
+            `*[_type == $docType]{"_id": _id, "path": ${pathExpr}}`,
+            {docType, ...(locale ? {locale} : {})},
+          )
 
-        // Build the shard document
-        const shard: RouteMapShard = {
-          _id: `routes-${channel}-${docType}`,
-          _type: 'routes.map',
-          channel,
-          documentType: docType,
-          basePath: route.basePath,
-          entries: validEntries.map((d, i) => ({
-            _key: `entry_${i}`,
-            doc: {_ref: d._id, _type: 'reference' as const, _weak: true as const},
-            path: d.path,
-          })),
+          const validEntries = docs.filter((d) => d.path)
+
+          // Build the shard document
+          const shardId = locale
+            ? `routes-${channel}-${docType}-${locale}`
+            : `routes-${channel}-${docType}`
+
+          const shard: RouteMapShard = {
+            _id: shardId,
+            _type: 'routes.map',
+            channel,
+            documentType: docType,
+            basePath: route.basePath,
+            entries: validEntries.map((d, i) => ({
+              _key: `entry_${i}`,
+              doc: {_ref: d._id, _type: 'reference' as const, _weak: true as const},
+              path: d.path,
+            })),
+          }
+
+          // Write the shard to Content Lake
+          await client.createOrReplace(shard)
+
+          result.shards++
+          result.entries += validEntries.length
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          const shardLabel = locale ? `${docType}/${locale}` : docType
+          result.errors.push(`Error building shard for type "${shardLabel}": ${message}`)
         }
-
-        // Write the shard to Content Lake
-        await client.createOrReplace(shard)
-
-        result.shards++
-        result.entries += validEntries.length
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        result.errors.push(`Error building shard for type "${docType}": ${message}`)
       }
     }
   }
