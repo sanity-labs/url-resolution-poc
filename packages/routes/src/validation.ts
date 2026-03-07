@@ -62,6 +62,6 @@ export function uniqueSlug(options?: {
       },
     )
 
-    return count > 0 ? `Slug "${slug.current}" is already in use` : true
+    return count > 0 ? `Another ${document?._type} already uses slug "${slug.current}"` : true
   }
 }

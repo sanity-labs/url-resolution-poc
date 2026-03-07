@@ -27,7 +27,7 @@ describe('uniqueSlug', () => {
     const validate = uniqueSlug()
     const ctx = createMockContext({fetchResult: 1})
     const result = await validate({current: 'duplicate-slug', _type: 'slug'}, ctx as any)
-    expect(result).toBe('Slug "duplicate-slug" is already in use')
+    expect(result).toBe('Another article already uses slug "duplicate-slug"')
   })
 
   it('returns error when slug is empty', async () => {

@@ -10,14 +10,16 @@ export const collisionType = defineType({
       name: 'path',
       title: 'Colliding path',
       type: 'string',
-      description: 'The URL path where two or more documents resolve to the same URL',
+      description:
+        'Two or more documents resolve to this URL. Change one of their slugs to fix it.',
     }),
     defineField({
       name: 'documents',
       title: 'Conflicting documents',
       type: 'array',
       of: [{type: 'reference', to: [{type: 'article'}, {type: 'blogPost'}], weak: true}],
-      description: 'Documents that resolve to the same URL',
+      description:
+        'These documents share the same URL. Open each one and change its slug so they no longer collide.',
     }),
     defineField({
       name: 'detectedAt',
@@ -31,7 +33,7 @@ export const collisionType = defineType({
       return {
         title: `⚠️ ${path}`,
         subtitle: detectedAt
-          ? `Detected ${new Date(detectedAt).toLocaleDateString()}`
+          ? `Detected ${new Date(detectedAt).toLocaleDateString()} \u2014 change a slug to resolve`
           : '',
       }
     },
