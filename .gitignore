@@ -7,3 +7,6 @@ dist/
 .sanity-project-id
 .sanity/
 .build/
+
+# TypeDoc generated output
+packages/routes/docs/api

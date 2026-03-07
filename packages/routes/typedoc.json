@@ -1,0 +1,12 @@
+{
+  "entryPoints": [
+    "src/resolver-entry.ts",
+    "src/studio-entry.ts",
+    "src/handler-entry.ts"
+  ],
+  "out": "docs/api",
+  "name": "@sanity/routes",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeInternal": true
+}
