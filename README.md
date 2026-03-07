@@ -572,6 +572,66 @@ await resolver.resolveUrlById('article-agent-context')
 
 Preview URLs support wildcards for branch-based deployments.
 
+### Redirects
+
+Automatic redirect management when slugs change. The redirect Function detects path changes on publish, creates redirect documents, and flattens chains so every redirect is always one hop.
+
+#### Setup
+
+1. Add the `routes.redirect` schema to your Studio (included in the POC).
+
+2. Deploy the redirect Function:
+
+```ts
+// studio/functions/redirect-on-slug-change/index.ts
+import { documentEventHandler } from '@sanity/functions'
+// ... (fires on publish of routable types)
+```
+
+3. Wire up `getRedirects()` in your framework:
+
+```ts
+// next.config.js
+import { getRedirects } from '@sanity/routes'
+import { client } from './src/sanity/lib/client'
+
+export default {
+  async redirects() {
+    return getRedirects(client)
+  }
+}
+```
+
+#### Chain Flattening
+
+When a slug changes multiple times (A→B→C), the Function updates all existing redirects to point to the final destination:
+
+| After first change (A→B) | After second change (B→C) |
+|---------------------------|---------------------------|
+| `/blog/a` → `/blog/b` | `/blog/a` → `/blog/c` |
+| | `/blog/b` → `/blog/c` |
+
+Every redirect is always one hop. No runtime chain resolution needed.
+
+#### Loop Prevention
+
+If a slug changes from A→B then back to A, the Function deletes the redirect from A (which would create a loop) and creates B→A instead.
+
+#### Scale Tiers
+
+| Redirects | Approach | Latency |
+|-----------|----------|---------|
+| < 2K | `next.config.js` `redirects()` | 0ms (edge-compiled) |
+| 2K–10K | Middleware + CDN-cached GROQ | ~5-15ms |
+| 10K+ | Vercel bulk redirects | ~0ms (Bloom filter) |
+
+#### Filtering
+
+```ts
+const autoOnly = await getRedirects(client, { source: 'auto' })
+const manualOnly = await getRedirects(client, { source: 'manual' })
+```
+
 ### Scale Considerations
 
 - **Shard size:** ~200 bytes/entry, ~160K entries/shard. Per-type sharding means most projects never hit limits.
