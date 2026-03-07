@@ -1,33 +1,76 @@
-import type { StructureResolver } from 'sanity/structure'
+import type {StructureResolver} from 'sanity/structure'
+import {
+  LinkIcon,
+  CogIcon,
+  WarningOutlineIcon,
+  TransferIcon,
+  DatabaseIcon,
+} from '@sanity/icons'
+
+const ROUTE_TYPES = ['routes.config', 'routes.map', 'routes.redirect', 'routes.collision']
 
 export const structure: StructureResolver = (S) =>
   S.list()
     .title('Content')
     .items([
-      // Regular content types (exclude system types)
+      // Content types (exclude route system types)
       ...S.documentTypeListItems().filter(
-        (item) => !['routes.config', 'routes.map'].includes(item.getId() ?? '')
+        (item) => !ROUTE_TYPES.includes(item.getId() ?? ''),
       ),
+
       S.divider(),
-      // Routes section (read-only via schema)
+
+      // URL Management section
       S.listItem()
-        .title('Routes')
+        .title('URL Management')
+        .icon(LinkIcon)
         .child(
           S.list()
-            .title('Routes')
+            .title('URL Management')
             .items([
+              // Route Configuration (singleton)
               S.listItem()
                 .title('Route Configuration')
+                .icon(CogIcon)
                 .child(
-                  S.documentTypeList('routes.config')
-                    .title('Route Configuration')
+                  S.document()
+                    .schemaType('routes.config')
+                    .documentId('routes-config-web')
+                    .title('Route Configuration'),
                 ),
+
+              S.divider(),
+
+              // URL Collisions
               S.listItem()
-                .title('Route Maps')
+                .title('URL Collisions')
+                .icon(WarningOutlineIcon)
+                .child(
+                  S.documentTypeList('routes.collision')
+                    .title('URL Collisions')
+                    .defaultOrdering([{field: 'detectedAt', direction: 'desc'}]),
+                ),
+
+              // Redirects
+              S.listItem()
+                .title('Redirects')
+                .icon(TransferIcon)
+                .child(
+                  S.documentTypeList('routes.redirect')
+                    .title('Redirects')
+                    .defaultOrdering([{field: '_createdAt', direction: 'desc'}]),
+                ),
+
+              S.divider(),
+
+              // Route Map Shards (debugging)
+              S.listItem()
+                .title('Route Map Shards')
+                .icon(DatabaseIcon)
                 .child(
                   S.documentTypeList('routes.map')
-                    .title('Route Maps')
+                    .title('Route Map Shards'),
                 ),
-            ])
+            ]),
         ),
     ])

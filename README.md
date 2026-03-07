@@ -613,6 +613,67 @@ Requires `SANITY_PROJECT_ID` and optionally `SANITY_DATASET`, `SANITY_READ_TOKEN
 | Function | Cross-type URL collisions | On publish |
 | Bulk script | All collisions | On demand / CI |
 
+### Studio Structure
+
+Organize route documents in the Studio with a dedicated URL Management section:
+
+```ts
+import type { StructureResolver } from 'sanity/structure'
+import { LinkIcon, CogIcon, WarningOutlineIcon, TransferIcon, DatabaseIcon } from '@sanity/icons'
+
+const ROUTE_TYPES = ['routes.config', 'routes.map', 'routes.redirect', 'routes.collision']
+
+export const structure: StructureResolver = (S) =>
+  S.list()
+    .title('Content')
+    .items([
+      ...S.documentTypeListItems().filter(
+        (item) => !ROUTE_TYPES.includes(item.getId() ?? '')
+      ),
+      S.divider(),
+      S.listItem()
+        .title('URL Management')
+        .icon(LinkIcon)
+        .child(
+          S.list()
+            .title('URL Management')
+            .items([
+              S.listItem()
+                .title('Route Configuration')
+                .icon(CogIcon)
+                .child(
+                  S.document()
+                    .schemaType('routes.config')
+                    .documentId('routes-config-web')
+                ),
+              S.divider(),
+              S.listItem()
+                .title('URL Collisions')
+                .icon(WarningOutlineIcon)
+                .child(
+                  S.documentTypeList('routes.collision')
+                    .title('URL Collisions')
+                    .defaultOrdering([{ field: 'detectedAt', direction: 'desc' }])
+                ),
+              S.listItem()
+                .title('Redirects')
+                .icon(TransferIcon)
+                .child(
+                  S.documentTypeList('routes.redirect')
+                    .defaultOrdering([{ field: '_createdAt', direction: 'desc' }])
+                ),
+              S.divider(),
+              S.listItem()
+                .title('Route Map Shards')
+                .icon(DatabaseIcon)
+                .child(S.documentTypeList('routes.map')),
+            ])
+        ),
+    ])
+```
+
+Route configuration opens as a singleton (one per channel). Collisions and redirects are sorted newest-first. Route map shards are available for debugging but tucked away.
+
 ### Redirects
 
 Automatic redirect management when slugs change. The redirect Function detects path changes on publish, creates redirect documents, and flattens chains so every redirect is always one hop.
