@@ -286,13 +286,6 @@ export const routeConfig = defineType({
                 rule.custom((value) => {
                   if (!value || typeof value !== 'string') return true
                   if (value.trim() === '') return 'Path expression cannot be empty'
-                  const suspicious = ['mutation', 'delete', 'create', 'patch']
-                  const lower = value.toLowerCase()
-                  for (const word of suspicious) {
-                    if (lower.includes(word)) {
-                      return { message: `Path expression contains suspicious keyword "${word}". This field should only contain read-only GROQ projections.`, level: 'warning' }
-                    }
-                  }
                   return true
                 }),
               components: {
