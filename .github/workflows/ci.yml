@@ -59,7 +59,10 @@ jobs:
           cache: pnpm
       - run: pnpm install
       - run: pnpm --filter @sanity/routes build
-      - run: pnpx sanity blueprints deploy
+      - name: Configure blueprints scope
+        working-directory: studio
+        run: pnpx sanity@latest blueprints config --edit --project-id bb8k7pej --stack-id ST-hag5e69ag7
+      - run: pnpx sanity@latest blueprints deploy
         working-directory: studio
         env:
           SANITY_AUTH_TOKEN: ${{ secrets.SANITY_AUTH_TOKEN }}
