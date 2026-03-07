@@ -143,36 +143,43 @@ For more patterns, see [Integration Guides](#integration-guides).
      per document                           in one query
             │                                      │
             ▼                                      ▼
-   ┌─────────────────────┐                  ┌──────────────────┐
-   │  Realtime Mode      │                  │   Static Mode    │
-   │  resolveUrlById()   │                  │  preload()       │
-   │  pathProjection()   │                  │  sitemaps        │
-   │  listen()           │                  │  PT links        │
-   └──────────┬──────────┘                  └────────┬─────────┘
-              └──────────────┬───────────────────────┘
-                             ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │                    RouteResolver                         │
+   │                                                          │
+   │  Realtime methods:          Static methods:              │
+   │  resolveUrlById()           preload()                    │
+   │  resolveUrlByIds()          resolveDocumentByUrl()       │
+   │  resolvePathById()          rebuildType()                │
+   │  pathProjection()                                        │
+   │  listen()                   Config-only:                 │
+   │  diagnose()                 getRoutableTypes()           │
+   │                             groqFunctions()              │
+   └──────────────────────────┬──────────────────────────────┘
+                              ▼
               ┌───────────────────────────┐
               │  Frontend  MCP  Studio CI │
               └───────────────────────────┘
 ```
 
-### Two modes, one config
+### One resolver, all methods
 
-**Realtime mode** reads the route config and evaluates GROQ path expressions against live data. When a slug changes, the resolved URL updates immediately.
+The resolver combines two resolution strategies:
+
+**Realtime methods** (`resolveUrlById`, `pathProjection`, `listen`, `diagnose`) read the route config and evaluate GROQ path expressions against live data. When a slug changes, the resolved URL updates immediately.
 
 ```ts
 const url = await resolver.resolveUrlById('article-agent-context')
 // → "https://www.sanity.io/docs/ai/agent-context"
 ```
 
-**Static mode** reads from a pre-computed route map. One query loads every document→URL mapping — ideal for sitemaps, Portable Text links, and bulk operations.
+**Static methods** (`preload`, `resolveDocumentByUrl`, `rebuildType`) read from pre-computed route map shards. One query loads every document→URL mapping — ideal for sitemaps, Portable Text links, and bulk operations. These require shards built by `buildRouteMap()` or the sync Function.
 
 ```ts
 const urlMap = await resolver.preload()
 urlMap.get('article-agent-context') // → "https://www.sanity.io/docs/ai/agent-context"
 ```
 
-Both modes read from the same route config. The sync Function that keeps the static map updated is covered in [Advanced Topics](#sync-function).
+Both strategies read from the same route config. The sync Function that keeps the static map updated is covered in [Advanced Topics](#sync-function).
 
 ---
 
@@ -241,7 +248,7 @@ Import from `@sanity/routes` — the main entry point is RSC-safe with zero Reac
 
 ### `createRouteResolver(client, channel?, options?)`
 
-Creates a resolver instance. Returns `RealtimeRouteResolver` by default, or `StaticRouteResolver` with `{ mode: 'static' }`. Channel is optional — if your project has a single `routes.config` document, the resolver finds it automatically.
+Creates a unified resolver with all methods. Channel is optional — if your project has a single `routes.config` document, the resolver finds it automatically.
 
 ```ts
 import { createRouteResolver } from '@sanity/routes'
@@ -254,11 +261,8 @@ const client = createClient({
   apiVersion: '2024-01-01',
 })
 
-// Realtime mode (default)
+// Basic usage
 const resolver = createRouteResolver(client, 'web')
-
-// Static mode — enables preload() and resolveDocumentByUrl()
-const staticResolver = createRouteResolver(client, 'web', { mode: 'static' })
 
 // Auto-detect single channel
 const autoResolver = createRouteResolver(client)
@@ -273,15 +277,14 @@ const resolver = createRouteResolver(client, 'web', {
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `mode` | `'realtime' \| 'static'` | Resolution mode. Default: `'realtime'`. |
 | `environment` | `string` | Which base URL to use. Defaults to `isDefault`. |
 | `locale` | `string` | Default locale for `$locale` in pathExpressions. |
 | `warn` | `boolean` | Log to console when resolution returns `null`. |
 | `onResolutionError` | `(error) => void` | Callback on failure. Receives `DiagnosisResult`. |
 
-### RealtimeRouteResolver
+### Realtime methods
 
-The default resolver. Evaluates GROQ path expressions live.
+These evaluate GROQ path expressions live — always fresh, no setup required.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
@@ -311,26 +314,9 @@ const path = await resolver.resolvePathById('article-agent-context')
 // → "/docs/ai/agent-context"
 ```
 
-#### `getPath()` utility
+### Static methods
 
-Extract the pathname from a full URL string. Useful with `preload()` maps:
-
-```ts
-import { getPath } from '@sanity/routes'
-
-const urlMap = await staticResolver.preload()
-for (const [id, url] of urlMap) {
-  const path = getPath(url)
-  // → "/blog/hello-world"
-}
-
-getPath('https://example.com/docs/setup?ref=nav') // → "/docs/setup"
-getPath('not-a-url')                               // → null
-```
-
-### StaticRouteResolver
-
-Created with `{ mode: 'static' }`. Has all realtime methods plus:
+These read from pre-computed route map shards. Require `buildRouteMap()` or the sync Function to have built the shards first.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
@@ -339,12 +325,28 @@ Created with `{ mode: 'static' }`. Has all realtime methods plus:
 | `resolveDocumentByUrl(url)` | `Promise<{ id, type } \| null>` | Reverse resolution — URL → document. |
 
 ```ts
-const staticResolver = createRouteResolver(client, 'web', { mode: 'static' })
-const urlMap = await staticResolver.preload()
+const urlMap = await resolver.preload()
 urlMap.get('article-agent-context') // → "https://www.sanity.io/docs/ai/agent-context"
 
-const doc = await staticResolver.resolveDocumentByUrl('/docs/ai/agent-context')
+const doc = await resolver.resolveDocumentByUrl('/docs/ai/agent-context')
 // → { id: 'article-agent-context', type: 'article' }
+```
+
+#### `getPath()` utility
+
+Extract the pathname from a full URL string. Useful with `preload()` maps:
+
+```ts
+import { getPath } from '@sanity/routes'
+
+const urlMap = await resolver.preload()
+for (const [id, url] of urlMap) {
+  const path = getPath(url)
+  // → "/blog/hello-world"
+}
+
+getPath('https://example.com/docs/setup?ref=nav') // → "/docs/setup"
+getPath('not-a-url')                               // → null
 ```
 
 ### `diagnose()`
@@ -358,7 +360,7 @@ When `resolveUrlById` returns `null`, use `diagnose()` to find out why. Returns 
 | `no_route_entry` | Document exists but its type has no route config. |
 | `empty_path` | Route matched but pathExpression evaluated to null/empty. |
 | `no_config` | No `routes.config` found for the channel. |
-| `shard_not_found` | (Static mode) No shard built yet for this type. |
+| `shard_not_found` | No shard built yet for this type. |
 
 ```ts
 const result = await resolver.diagnose('my-doc')
@@ -396,15 +398,15 @@ The resolver is RSC-safe — import directly in Server Components.
 // lib/routes.ts
 import { createRouteResolver } from '@sanity/routes'
 import { client } from './sanity.client'
-export const routeResolver = createRouteResolver(client, 'web')
+export const resolver = createRouteResolver(client, 'web')
 ```
 
 ```tsx
 // app/blog/page.tsx
-import { routeResolver } from '@/lib/routes'
+import { resolver } from '@/lib/routes'
 
 export default async function BlogIndex() {
-  const pathField = await routeResolver.pathProjection('blogPost')
+  const pathField = await resolver.pathProjection('blogPost')
   const posts = await client.fetch(
     `*[_type == "blogPost"] | order(publishedAt desc) { _id, title, excerpt, ${pathField} }`
   )
@@ -423,7 +425,9 @@ export default async function BlogIndex() {
 Use `preload()` to load all routes once, then resolve synchronously.
 
 ```tsx
-const resolver = createRouteResolver(client, 'web', { mode: 'static' })
+import { createRouteResolver } from '@sanity/routes'
+
+const resolver = createRouteResolver(client, 'web')
 
 export async function PortableTextBody({ slug }) {
   const [post, urlMap] = await Promise.all([
@@ -443,6 +447,8 @@ export async function PortableTextBody({ slug }) {
 ```
 
 The `Promise.all` pattern loads the route map in parallel with your content query — no waterfall.
+
+> **Note:** `preload()` requires route map shards built by `buildRouteMap()` or the sync Function.
 
 ### Presentation Tool
 
@@ -472,7 +478,7 @@ export default defineConfig({
 ```ts
 // app/sitemap.xml/route.ts
 import { createRouteResolver } from '@sanity/routes'
-const resolver = createRouteResolver(client, 'web', { mode: 'static' })
+const resolver = createRouteResolver(client, 'web')
 
 export async function GET() {
   const urlMap = await resolver.preload()
@@ -483,6 +489,8 @@ export async function GET() {
   )
 }
 ```
+
+> **Note:** `preload()` requires route map shards. See [Sync Function](#sync-function).
 
 ---
 
@@ -519,6 +527,16 @@ Deploy: `cd studio && pnpx sanity blueprints deploy`
 On publish, the handler reads the route config, evaluates the `pathExpression`, and upserts the route map shard. On delete, removes the entry. On parent change, cascades to re-sync all children.
 
 **Design decisions:** Recursion-safe (`routes.map` never matches the filter). Draft-safe (only fires on publish). Atomic upserts (`createIfNotExists` + `unset` + `insert`).
+
+### Shard-based methods
+
+`preload()`, `resolveDocumentByUrl()`, and `rebuildType()` read from pre-computed route map shards stored in Content Lake. These shards must be built before these methods return useful results:
+
+- **Sync Function** — Automatically rebuilds shards on document publish/unpublish. Best for production.
+- **`buildRouteMap()`** — One-time bulk build. Use for initial setup or after schema changes.
+- **`rebuildType(type)`** — Rebuild a single type's shard. Useful for targeted updates.
+
+If `preload()` returns an empty map, check that shards exist and your client has read access (a token may be needed if shard IDs contain dots).
 
 ### i18n / Localized URLs
 
@@ -557,7 +575,7 @@ Preview URLs support wildcards for branch-based deployments.
 ### Scale Considerations
 
 - **Shard size:** ~200 bytes/entry, ~160K entries/shard. Per-type sharding means most projects never hit limits.
-- **Realtime vs static:** Realtime evaluates GROQ per call (~194ms with parent lookup). Static loads all shards in one query. Use static for >10 URLs.
+- **Realtime vs static:** Realtime evaluates GROQ per call (~194ms with parent lookup). Static loads all shards in one query. Use `preload()` for >10 URLs.
 - **`preload()` memory:** ~2MB for 10K documents. Negligible for SSR.
 - **Sync throughput:** 3 reads + 1 write per publish. For bulk imports, use `buildRouteMap()`.
 - **Parent fan-out:** Parent change re-syncs children sequentially. Fine for editorial; needs batching for bulk.
@@ -622,7 +640,7 @@ url-resolution-poc/
 
 ### Known Limitations
 
-- **Static mode filter** — `preload()` loads the entire map. No type-scoped loading yet.
+- **Static method filter** — `preload()` loads the entire map. No type-scoped loading yet.
 - **No nested routes** — `parentSlug` handles one level. No deep nesting.
 - **Single dataset** — cross-dataset resolution not supported.
 - **Reverse resolution** — linear scan (needs index at 100K+).

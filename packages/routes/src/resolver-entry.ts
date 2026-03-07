@@ -19,11 +19,11 @@ export type {
   RouteEntry,
   RouteMapShard,
   RouteMapEntry,
+  RouteResolver,
+  // Deprecated aliases
   BaseRouteResolver,
   StaticRouteResolver,
   RealtimeRouteResolver,
-  RouteResolver,
-  ResolverMode,
   ResolverOptions,
   LocaleOptions,
   BuildResult,

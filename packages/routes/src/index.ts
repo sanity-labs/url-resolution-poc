@@ -32,7 +32,10 @@ export type {
   RouteMapShard,
   RouteMapEntry,
   RouteResolver,
-  ResolverMode,
+  // Deprecated aliases
+  BaseRouteResolver,
+  StaticRouteResolver,
+  RealtimeRouteResolver,
   ResolverOptions,
   BuildResult,
   BlueprintOptions,

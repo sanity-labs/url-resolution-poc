@@ -167,14 +167,14 @@ export interface LocaleOptions {
 }
 
 /**
- * Status codes returned by {@link BaseRouteResolver.diagnose}.
+ * Status codes returned by {@link RouteResolver.diagnose}.
  *
  * - `'resolved'` — URL resolved successfully
  * - `'document_not_found'` — No document exists with this ID
  * - `'no_route_entry'` — Document exists but its type has no route config
  * - `'empty_path'` — Route matched but pathExpression evaluated to null/empty
  * - `'no_config'` — No route config document found for the channel
- * - `'shard_not_found'` — (Static mode only) Route entry exists but no shard has been built yet
+ * - `'shard_not_found'` — Route entry exists but no shard has been built yet
  *
  * @experimental The status set may evolve.
  */
@@ -189,7 +189,7 @@ export type DiagnosisStatus =
 /**
  * Detailed diagnosis of why a document ID resolved (or failed to resolve) to a URL.
  *
- * Use {@link BaseRouteResolver.diagnose} to get this result. The `message` field
+ * Use {@link RouteResolver.diagnose} to get this result. The `message` field
  * contains a human-readable explanation suitable for logging.
  *
  * @example
@@ -219,16 +219,33 @@ export interface DiagnosisResult {
 }
 
 /**
- * Shared interface for all route resolver methods.
+ * Unified route resolver with all URL resolution methods.
  *
- * Both {@link RealtimeRouteResolver} and {@link StaticRouteResolver} extend this
- * interface. Use the `mode` property to discriminate between them at runtime.
+ * Created via {@link createRouteResolver}. Combines realtime GROQ evaluation
+ * (for `resolveUrlById`, `pathProjection`, `listen`, etc.) with static shard
+ * lookups (for `preload`, `resolveDocumentByUrl`, `rebuildType`).
+ *
+ * @example
+ * ```ts
+ * import { createRouteResolver } from '@sanity/routes'
+ *
+ * const resolver = createRouteResolver(client, 'web')
+ *
+ * // Realtime — evaluates GROQ live
+ * const url = await resolver.resolveUrlById('article-123')
+ *
+ * // Static — reads from pre-computed shards
+ * const urlMap = await resolver.preload()
+ * urlMap.get('article-123')
+ * ```
  *
  * @see {@link createRouteResolver} to create a resolver instance
  */
-export interface BaseRouteResolver {
+export interface RouteResolver {
   /**
    * Resolve a single document ID to its full URL.
+   *
+   * Uses realtime GROQ evaluation — always returns the freshest result.
    *
    * @param id - Published document ID to resolve. Use `@sanity/id-utils` to normalize draft/version IDs.
    * @param options - Locale options for i18n routes
@@ -250,8 +267,9 @@ export interface BaseRouteResolver {
   /**
    * Resolve multiple document IDs to their full URLs in a single batch.
    *
-   * More efficient than calling {@link resolveUrlById} in a loop — groups
-   * documents by route entry for batch GROQ evaluation.
+   * Uses realtime GROQ evaluation. More efficient than calling
+   * {@link resolveUrlById} in a loop — groups documents by route entry
+   * for batch GROQ evaluation.
    *
    * @param ids - Array of published document IDs to resolve
    * @param options - Locale options for i18n routes
@@ -297,7 +315,8 @@ export interface BaseRouteResolver {
   /**
    * Resolve a document ID to just the URL pathname (no origin).
    *
-   * Convenience wrapper around {@link resolveUrlById} that extracts the pathname.
+   * Uses realtime GROQ evaluation. Convenience wrapper around
+   * {@link resolveUrlById} that extracts the pathname.
    * Use this for Next.js `<Link href>`, internal routing, and `redirect()`.
    *
    * @param id - Published document ID
@@ -306,11 +325,6 @@ export interface BaseRouteResolver {
    *
    * @example
    * ```ts
-   * // resolveUrlById returns the full URL
-   * const url = await resolver.resolveUrlById('article-123')
-   * // → "https://www.sanity.io/docs/ai/agent-context"
-   *
-   * // resolvePathById returns just the pathname — what Next.js needs
    * const path = await resolver.resolvePathById('article-123')
    * // → "/docs/ai/agent-context"
    * ```
@@ -319,6 +333,8 @@ export interface BaseRouteResolver {
 
   /**
    * Resolve multiple document IDs to their pathnames in a single batch.
+   *
+   * Uses realtime GROQ evaluation.
    *
    * @param ids - Array of published document IDs
    * @param options - Locale options for i18n routes
@@ -360,20 +376,9 @@ export interface BaseRouteResolver {
   groqFunctions(): Promise<string>
 
   /**
-   * The resolver mode. Use to discriminate between resolver types at runtime.
-   *
-   * @example
-   * ```ts
-   * if (resolver.mode === 'static') {
-   *   const urlMap = await resolver.preload()
-   * }
-   * ```
-   */
-  readonly mode: ResolverMode
-
-  /**
    * Diagnose why a document ID fails (or succeeds) to resolve to a URL.
    *
+   * Uses realtime GROQ evaluation to check each step of the resolution pipeline.
    * Returns a detailed result with a status code and human-readable message.
    * Use this for debugging when {@link resolveUrlById} returns `null`.
    *
@@ -393,25 +398,30 @@ export interface BaseRouteResolver {
    * @see {@link DiagnosisResult} for the full result shape
    */
   diagnose(id: string, options?: LocaleOptions): Promise<DiagnosisResult>
-}
 
-/**
- * Route resolver that reads from pre-computed route map shards.
- *
- * Use static mode when you need {@link preload} for synchronous URL lookups
- * (e.g., Portable Text link resolution) or {@link resolveDocumentByUrl} for
- * reverse URL resolution. Requires route map shards to be built first via
- * `buildRouteMap()` or the sync Function.
- *
- * @see {@link createRouteResolver} with `{ mode: 'static' }` to create
- * @see {@link RealtimeRouteResolver} for the live GROQ evaluation alternative
- */
-export interface StaticRouteResolver extends BaseRouteResolver {
-  readonly mode: 'static'
+  /**
+   * Subscribe to route config changes and invalidate the internal cache.
+   *
+   * Call this in long-running processes (e.g., dev servers) to keep the
+   * resolver's cached config fresh when route configuration changes in Studio.
+   *
+   * @returns Unsubscribe function. Call it to stop listening.
+   *
+   * @example
+   * ```ts
+   * // In a React component or layout
+   * useEffect(() => {
+   *   const unsubscribe = resolver.listen()
+   *   return () => unsubscribe() // cleanup on unmount
+   * }, [resolver])
+   * ```
+   */
+  listen(): () => void
 
   /**
    * Load all route map shards into a Map for synchronous URL lookups.
    *
+   * Requires route map shards built by `buildRouteMap()` or the sync Function.
    * Returns a Map of document ID → full URL for every document in the route map.
    * Ideal for Portable Text rendering where you need synchronous access to URLs
    * for internal link marks.
@@ -442,6 +452,7 @@ export interface StaticRouteResolver extends BaseRouteResolver {
   /**
    * Rebuild the route map shard for a specific document type.
    *
+   * Requires route map shards infrastructure (the sync Function or `buildRouteMap()`).
    * Fetches all documents of the given type, evaluates their pathExpression,
    * and writes the shard to Content Lake via `createOrReplace`. When the route
    * has locales configured and no specific locale is passed, rebuilds all
@@ -465,6 +476,8 @@ export interface StaticRouteResolver extends BaseRouteResolver {
   /**
    * Reverse-resolve a URL to the document that produces it.
    *
+   * Requires route map shards built by `buildRouteMap()` or the sync Function.
+   * Scans all shards to find the document whose assembled URL matches the input.
    * Accepts full URLs or path-only input. Normalizes trailing slashes,
    * query parameters, and fragments before comparison.
    *
@@ -484,61 +497,22 @@ export interface StaticRouteResolver extends BaseRouteResolver {
 }
 
 /**
- * Route resolver that evaluates GROQ pathExpressions live against Content Lake.
- *
- * This is the default mode — no setup required. Works immediately without
- * building route map shards. Use when you need always-fresh URL resolution
- * and don't need {@link StaticRouteResolver.preload | preload()} or
- * {@link StaticRouteResolver.resolveDocumentByUrl | resolveDocumentByUrl()}.
- *
- * @see {@link createRouteResolver} to create (default mode)
- * @see {@link StaticRouteResolver} for the pre-computed shard alternative
+ * @deprecated Use {@link RouteResolver} instead. This type alias exists for backwards compatibility.
  */
-export interface RealtimeRouteResolver extends BaseRouteResolver {
-  readonly mode: 'realtime'
-
-  /**
-   * Subscribe to route config changes and invalidate the internal cache.
-   *
-   * Call this in long-running processes (e.g., dev servers) to keep the
-   * resolver's cached config fresh when route configuration changes in Studio.
-   *
-   * @returns Unsubscribe function. Call it to stop listening.
-   *
-   * @example
-   * ```ts
-   * // In a React component or layout
-   * useEffect(() => {
-   *   const unsubscribe = resolver.listen()
-   *   return () => unsubscribe() // cleanup on unmount
-   * }, [resolver])
-   * ```
-   */
-  listen(): () => void
-}
+export type BaseRouteResolver = RouteResolver
 
 /**
- * Union type of all resolver variants.
- *
- * Use the `mode` property to narrow to {@link StaticRouteResolver} or
- * {@link RealtimeRouteResolver} when you need mode-specific methods.
- *
- * @example
- * ```ts
- * function useResolver(resolver: RouteResolver) {
- *   if (resolver.mode === 'static') {
- *     return resolver.preload() // TypeScript knows this is StaticRouteResolver
- *   }
- * }
- * ```
+ * @deprecated Use {@link RouteResolver} instead. This type alias exists for backwards compatibility.
  */
-export type RouteResolver = StaticRouteResolver | RealtimeRouteResolver
+export type StaticRouteResolver = RouteResolver
 
 /**
- * The two resolver modes.
- *
- * - `'realtime'` — Evaluates GROQ pathExpressions live. Default mode.
- * - `'static'` — Reads from pre-computed route map shards. Enables preload() and resolveDocumentByUrl().
+ * @deprecated Use {@link RouteResolver} instead. This type alias exists for backwards compatibility.
+ */
+export type RealtimeRouteResolver = RouteResolver
+
+/**
+ * @deprecated The resolver no longer has modes. All methods are available on every resolver.
  */
 export type ResolverMode = 'realtime' | 'static'
 
@@ -547,12 +521,11 @@ export type ResolverMode = 'realtime' | 'static'
  *
  * @example
  * ```ts
- * // Minimal — realtime mode, auto-detect channel
+ * // Minimal — auto-detect channel
  * createRouteResolver(client)
  *
- * // Static mode with environment matching
+ * // With environment matching
  * createRouteResolver(client, 'web', {
- *   mode: 'static',
  *   environment: 'production',
  * })
  *
@@ -566,7 +539,10 @@ export interface ResolverOptions {
   /** The channel name to resolve routes for (e.g. `"web"`). Optional — if omitted, uses the default config. */
   channel?: string
 
-  /** Resolution mode: `'realtime'` (default) or `'static'`. */
+  /**
+   * @deprecated The resolver no longer has modes. All methods are available on every resolver.
+   * Passing this option logs a deprecation warning and is otherwise ignored.
+   */
   mode?: ResolverMode
 
   /** Explicit base URL — highest priority, overrides all baseUrl entries in config. */
@@ -582,14 +558,14 @@ export interface ResolverOptions {
   locale?: string
 
   /**
-   * Log a diagnostic message to console when {@link BaseRouteResolver.resolveUrlById}
+   * Log a diagnostic message to console when {@link RouteResolver.resolveUrlById}
    * returns `null`. Set to `process.env.NODE_ENV !== 'production'` for
    * development-only warnings.
    */
   warn?: boolean
 
   /**
-   * Callback invoked when {@link BaseRouteResolver.resolveUrlById} returns `null`.
+   * Callback invoked when {@link RouteResolver.resolveUrlById} returns `null`.
    * Receives a {@link DiagnosisResult} with the failure details. Use for error
    * tracking (e.g., Sentry). Only called when resolution fails — not on successful resolution.
    */
