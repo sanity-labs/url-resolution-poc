@@ -3,22 +3,13 @@ import { sanityClient } from 'sanity:client'
 import Base from '../layouts/Base.astro'
 import { resolver } from '../lib/routes'
 import { ARTICLES_QUERY, BLOG_POSTS_QUERY } from '../lib/queries'
+import { getPathById } from '../lib/utils'
 
 const [articles, posts, urlMap] = await Promise.all([
   sanityClient.fetch(ARTICLES_QUERY),
   sanityClient.fetch(BLOG_POSTS_QUERY),
   resolver.preload(),
 ])
-
-function getPath(id: string): string {
-  const url = urlMap[id]
-  if (!url) return '#'
-  try {
-    return new URL(url).pathname
-  } catch {
-    return url
-  }
-}
 ---
 
 <Base title="Home">
@@ -33,8 +24,8 @@ function getPath(id: string): string {
     <ul>
       {articles.map((a) => (
         <li>
-          <a href={getPath(a._id)}>{a.title}</a>
-          <code> &rarr; {getPath(a._id)}</code>
+          <a href={getPathById(a._id, urlMap)}>{a.title}</a>
+          <code> &rarr; {getPathById(a._id, urlMap)}</code>
         </li>
       ))}
     </ul>
@@ -45,8 +36,8 @@ function getPath(id: string): string {
     <ul>
       {posts.map((p) => (
         <li>
-          <a href={getPath(p._id)}>{p.title}</a>
-          <code> &rarr; {getPath(p._id)}</code>
+          <a href={getPathById(p._id, urlMap)}>{p.title}</a>
+          <code> &rarr; {getPathById(p._id, urlMap)}</code>
         </li>
       ))}
     </ul>

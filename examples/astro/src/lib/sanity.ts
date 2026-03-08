@@ -9,6 +9,6 @@ export const authenticatedClient = createClient({
   projectId: 'bb8k7pej',
   dataset: 'production',
   apiVersion: '2026-03-01',
-  useCdn: true,
+  useCdn: false,
   token: import.meta.env.SANITY_API_READ_TOKEN || undefined,
 })

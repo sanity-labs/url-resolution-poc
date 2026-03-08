@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
 import { resolver } from '../lib/routes'
+import { escapeXml } from '../lib/utils'
 
 export const GET: APIRoute = async () => {
   const urlMap = await resolver.preload()
@@ -7,7 +8,7 @@ export const GET: APIRoute = async () => {
   const entries = Object.values(urlMap)
     .map(
       (url) => `  <url>
-    <loc>${url}</loc>
+    <loc>${escapeXml(url)}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`,

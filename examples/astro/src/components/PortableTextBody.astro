@@ -1,5 +1,6 @@
 ---
 import { PortableText } from 'astro-portabletext'
+import { getPath } from '../lib/utils'
 
 interface Props {
   value: any
@@ -7,14 +8,6 @@ interface Props {
 }
 
 const { value, urlMap } = Astro.props
-
-function getPath(url: string): string {
-  try {
-    return new URL(url).pathname
-  } catch {
-    return url
-  }
-}
 ---
 
 {value && (
