@@ -1,6 +1,6 @@
 ---
 import { PortableText } from 'astro-portabletext'
-import { getPath } from '../lib/utils'
+import { getPath } from '@sanity/routes'
 
 interface Props {
   value: any
@@ -18,7 +18,7 @@ const { value, urlMap } = Astro.props
       if (node.markType === 'internalLink') {
         const docId = node.markDef?.reference?._ref
         const url = docId ? urlMap[docId] : undefined
-        const href = url ? getPath(url) : '#'
+        const href = url ? (getPath(url) ?? url) : '#'
         return url
           ? <a href={href}>{children}</a>
           : <span>{children}</span>
