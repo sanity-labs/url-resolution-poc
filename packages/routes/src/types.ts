@@ -236,7 +236,7 @@ export interface DiagnosisResult {
  *
  * // Static — reads from pre-computed shards
  * const urlMap = await resolver.preload()
- * urlMap.get('article-123')
+ * urlMap['article-123']
  * ```
  *
  * @see {@link createRouteResolver} to create a resolver instance
@@ -273,17 +273,17 @@ export interface RouteResolver {
    *
    * @param ids - Array of published document IDs to resolve
    * @param options - Locale options for i18n routes
-   * @returns Map of document ID → full URL. IDs that can't be resolved are omitted (not null).
+   * @returns Record of document ID → full URL. IDs that can't be resolved are omitted (not null).
    *
    * @example
    * ```ts
    * const urls = await resolver.resolveUrlByIds(['blog-1', 'blog-2', 'article-1'])
-   * urls.get('blog-1')    // → 'https://example.com/blog/hello-world'
-   * urls.get('article-1') // → 'https://example.com/docs/setup'
-   * urls.get('missing')   // → undefined
+   * urls['blog-1']    // → 'https://example.com/blog/hello-world'
+   * urls['article-1'] // → 'https://example.com/docs/setup'
+   * urls['missing']   // → undefined
    * ```
    */
-  resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>>
+  resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Record<string, string>>
 
   /**
    * Returns a GROQ projection expression for the path portion of a route.
@@ -338,16 +338,16 @@ export interface RouteResolver {
    *
    * @param ids - Array of published document IDs
    * @param options - Locale options for i18n routes
-   * @returns Map of document ID → pathname. Unresolvable IDs are omitted.
+   * @returns Record of document ID → pathname. Unresolvable IDs are omitted.
    *
    * @example
    * ```ts
    * const paths = await resolver.resolvePathByIds(['blog-1', 'article-1'])
-   * paths.get('blog-1')    // → "/blog/hello-world"
-   * paths.get('article-1') // → "/docs/setup"
+   * paths['blog-1']    // → "/blog/hello-world"
+   * paths['article-1'] // → "/docs/setup"
    * ```
    */
-  resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>>
+  resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Record<string, string>>
 
   /**
    * List all document types that have route entries in the config.
@@ -422,12 +422,12 @@ export interface RouteResolver {
    * Load all route map shards into a Map for synchronous URL lookups.
    *
    * Requires route map shards built by `buildRouteMap()` or the sync Function.
-   * Returns a Map of document ID → full URL for every document in the route map.
+   * Returns a Record of document ID → full URL for every document in the route map.
    * Ideal for Portable Text rendering where you need synchronous access to URLs
    * for internal link marks.
    *
    * @param options - Locale options. When set, loads locale-specific shards.
-   * @returns Map of document ID → full URL. Empty map if no shards exist.
+   * @returns Record of document ID → full URL. Empty record if no shards exist.
    *
    * @example
    * ```ts
@@ -441,13 +441,13 @@ export interface RouteResolver {
    * const components = {
    *   marks: {
    *     internalLink: ({ value, children }) => (
-   *       <a href={urlMap.get(value.reference._ref) ?? '#'}>{children}</a>
+   *       <a href={urlMap[value.reference._ref] ?? '#'}>{children}</a>
    *     ),
    *   },
    * }
    * ```
    */
-  preload(options?: LocaleOptions): Promise<Map<string, string>>
+  preload(options?: LocaleOptions): Promise<Record<string, string>>
 
   /**
    * Rebuild the route map shard for a specific document type.

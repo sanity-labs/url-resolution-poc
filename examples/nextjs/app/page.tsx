@@ -9,7 +9,7 @@ export default async function Home() {
   ])
 
   const getPath = (id: string) => {
-    const url = urlMap.get(id)
+    const url = urlMap[id]
     if (!url) return '#'
     try { return new URL(url).pathname } catch { return url }
   }

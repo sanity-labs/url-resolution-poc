@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types'
 export const GET: RequestHandler = async () => {
   const urlMap = await resolver.preload()
 
-  const urls = [...urlMap.values()].map((url) => `
+  const urls = Object.values(urlMap).map((url) => `
     <url>
       <loc>${escapeXml(url)}</loc>
       <lastmod>${new Date().toISOString()}</lastmod>

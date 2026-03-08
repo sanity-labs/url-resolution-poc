@@ -10,8 +10,6 @@ export const load: PageServerLoad = async () => {
     resolver.preload(),
   ])
 
-  // SvelteKit uses devalue for serialization, which handles Maps natively.
-  // In frameworks that use JSON serialization (e.g., Remix), you'd need:
-  //   Object.fromEntries(urlMap)
+  // preload() returns a plain Record — works with any serialization format
   return { articles, posts, urlMap }
 }

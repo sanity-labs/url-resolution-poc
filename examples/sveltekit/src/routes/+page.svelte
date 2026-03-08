@@ -4,7 +4,7 @@
   let { data }: { data: PageData } = $props()
 
   function getPath(id: string): string {
-    const url = data.urlMap.get(id)
+    const url = data.urlMap[id]
     if (!url) return '#'
     try { return new URL(url).pathname } catch { return url }
   }
