@@ -23,6 +23,6 @@ if (!data.value?.post) {
 <template>
   <article v-if="data?.post">
     <h1>{{ data.post.title }}</h1>
-    <PortableTextBody :value="data.post.body" :url-map="data.urlMap" />
+    <PortableTextBody v-if="data.post.body" :value="data.post.body" :url-map="data.urlMap" />
   </article>
 </template>

@@ -1,5 +1,3 @@
-import { useRouteResolver } from '../utils/routes'
-
 export default defineEventHandler(async (event) => {
   const resolver = useRouteResolver()
   const urlMap = await resolver.preload()

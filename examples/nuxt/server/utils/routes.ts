@@ -1,5 +1,4 @@
 import { createRouteResolver } from '@sanity/routes'
-import { useSanityClient } from './sanity'
 
 export function useRouteResolver() {
   const config = useRuntimeConfig()

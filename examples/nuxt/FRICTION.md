@@ -6,7 +6,7 @@ Findings from integrating `@sanity/routes` with Nuxt 3 (fifth framework example,
 
 | Severity | Integration Point | Finding |
 |----------|------------------|---------|
-| **None** | Resolver setup | Nuxt's `server/utils/` auto-import is a natural fit. `useSanityClient()` and `useRouteResolver()` are available everywhere in server code without imports. Cleanest setup of any framework so far. |
+| **None** | Resolver setup | Nuxt's `server/utils/` auto-import is a natural fit. `useSanityClient()` and `useRouteResolver()` are available everywhere in server code without explicit imports. Only package imports (`@sanity/routes`, `@sanity/client`) need explicit `import` statements — Nuxt auto-imports handle the rest. Cleanest setup of any framework so far. |
 
 ## useAsyncData — Right Composable
 

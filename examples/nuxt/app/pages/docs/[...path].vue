@@ -8,7 +8,7 @@ const pathSegments = Array.isArray(route.params.path)
   : (route.params.path as string).split('/')
 const lastSlug = pathSegments[pathSegments.length - 1]
 
-const { data } = await useAsyncData(`docs-${lastSlug}`, async () => {
+const { data } = await useAsyncData(`docs-${pathSegments.join('-')}`, async () => {
   const client = useSanityClient()
   const resolver = useRouteResolver()
 
@@ -28,6 +28,6 @@ if (!data.value?.article) {
 <template>
   <article v-if="data?.article">
     <h1>{{ data.article.title }}</h1>
-    <PortableTextBody :value="data.article.body" :url-map="data.urlMap" />
+    <PortableTextBody v-if="data.article.body" :value="data.article.body" :url-map="data.urlMap" />
   </article>
 </template>

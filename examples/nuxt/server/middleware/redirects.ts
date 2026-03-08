@@ -1,5 +1,4 @@
 import { getRedirects } from '@sanity/routes'
-import { useSanityClient } from '../utils/sanity'
 
 export default defineEventHandler(async (event) => {
   const url = getRequestURL(event)
