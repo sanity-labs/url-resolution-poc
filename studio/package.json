@@ -8,6 +8,7 @@
     "typegen": "sanity schema extract --enforce-required-fields --path schema.json && sanity typegen generate"
   },
   "dependencies": {
+    "@sanity/agent-context": "^0.3.4",
     "@sanity/blueprints": "^0.12.2",
     "@sanity/client": "^7.16.0",
     "@sanity/code-input": "^7.0.8",
