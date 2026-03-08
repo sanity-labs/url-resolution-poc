@@ -7,6 +7,9 @@ dist/
 .sanity-project-id
 .sanity/
 .build/
+.nuxt/
+.output/
+node-compile-cache/
 
 # TypeDoc generated output
 packages/routes/docs/api
