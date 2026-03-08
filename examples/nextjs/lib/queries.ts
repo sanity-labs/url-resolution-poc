@@ -1,6 +1,16 @@
 import { defineQuery } from 'next-sanity'
 
-// ─── Static queries (TypeGen generates result types) ────────────────────────
+// ─── List queries ───────────────────────────────────────────────────────────
+
+export const ARTICLES_QUERY = defineQuery(`
+  *[_type == "article"] | order(title asc) { _id, title }
+`)
+
+export const BLOG_POSTS_QUERY = defineQuery(`
+  *[_type == "blogPost"] | order(title asc) { _id, title }
+`)
+
+// ─── Detail queries ─────────────────────────────────────────────────────────
 
 export const BLOG_POST_BY_SLUG_QUERY = defineQuery(`
   *[_type == "blogPost" && slug.current == $slug][0]{

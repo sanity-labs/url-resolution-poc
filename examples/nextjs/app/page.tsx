@@ -1,17 +1,19 @@
 import { sanityFetch } from '@/lib/live'
 import { resolver } from '@/lib/routes'
+import { getPath } from '@sanity/routes'
+import { ARTICLES_QUERY, BLOG_POSTS_QUERY } from '@/lib/queries'
 
 export default async function Home() {
   const [{ data: articles }, { data: posts }, urlMap] = await Promise.all([
-    sanityFetch({ query: `*[_type == "article"] | order(title asc) { _id, title }` }),
-    sanityFetch({ query: `*[_type == "blogPost"] | order(title asc) { _id, title }` }),
+    sanityFetch({ query: ARTICLES_QUERY }),
+    sanityFetch({ query: BLOG_POSTS_QUERY }),
     resolver.preload(),
   ])
 
-  const getPath = (id: string) => {
+  function getPathById(id: string): string {
     const url = urlMap[id]
     if (!url) return '#'
-    try { return new URL(url).pathname } catch { return url }
+    return getPath(url) ?? url
   }
 
   return (
@@ -22,10 +24,10 @@ export default async function Home() {
       <section>
         <h2>Articles</h2>
         <ul>
-          {(articles as Array<{_id: string; title: string | null}>).map((a) => (
+          {articles.map((a) => (
             <li key={a._id}>
-              <a href={getPath(a._id)}>{a.title}</a>
-              <code> → {getPath(a._id)}</code>
+              <a href={getPathById(a._id)}>{a.title}</a>
+              <code> → {getPathById(a._id)}</code>
             </li>
           ))}
         </ul>
@@ -34,10 +36,10 @@ export default async function Home() {
       <section>
         <h2>Blog Posts</h2>
         <ul>
-          {(posts as Array<{_id: string; title: string | null}>).map((p) => (
+          {posts.map((p) => (
             <li key={p._id}>
-              <a href={getPath(p._id)}>{p.title}</a>
-              <code> → {getPath(p._id)}</code>
+              <a href={getPathById(p._id)}>{p.title}</a>
+              <code> → {getPathById(p._id)}</code>
             </li>
           ))}
         </ul>
