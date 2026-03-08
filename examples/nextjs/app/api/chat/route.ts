@@ -48,13 +48,14 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: anthropic('claude-sonnet-4-20250514'),
-      system: `You are a helpful assistant for a URL Resolution demo site. You can search content using the Sanity Agent Context tools and resolve document URLs using the resolveUrls tool.
+      system: `You are a helpful assistant for a URL Resolution demo site. You can search content using the Sanity Agent Context tools and resolve document paths using the resolveUrls tool.
 
 When answering questions about content:
 1. Use the available query tools to find relevant documents
-2. Use resolveUrls to get correct URLs for any documents you reference
-3. Always include links in your responses using the resolved URLs
+2. Use resolveUrls to get correct paths for any documents you reference
+3. Always include links in your responses using the resolved paths (e.g. [Title](/blog/my-post))
 4. Never guess or construct URLs yourself — always use the resolveUrls tool
+5. The paths are relative to this site — use them directly as markdown links
 
 The content includes articles, blog posts, and documentation about URL resolution patterns.`,
       messages: await convertToModelMessages(messages),
@@ -62,14 +63,14 @@ The content includes articles, blog posts, and documentation about URL resolutio
         ...mcpTools,
         resolveUrls: tool({
           description:
-            'Resolve Sanity document IDs to their URLs. Call this whenever you need to link to a document in your response.',
+            'Resolve Sanity document IDs to their paths on this site. Call this whenever you need to link to a document in your response. Returns paths like /blog/my-post — use these directly as links.',
           inputSchema: z.object({
             documentIds: z
               .array(z.string())
               .describe('Array of Sanity document IDs to resolve'),
           }),
           execute: async ({ documentIds }) => {
-            return await resolver.resolveUrlByIds(documentIds)
+            return await resolver.resolvePathByIds(documentIds)
           },
         }),
       },
