@@ -22,38 +22,50 @@ const anthropic = createAnthropic({
   apiKey: process.env.CHATBOT_ANTHROPIC_API_KEY,
 })
 
+async function connectMCP() {
+  const transportConfig = {
+    url: process.env.SANITY_CONTEXT_MCP_URL!,
+    headers: {
+      Authorization: `Bearer ${process.env.SANITY_API_READ_TOKEN}`,
+    },
+  }
+
+  try {
+    return await createMCPClient({
+      transport: { type: 'sse' as const, ...transportConfig },
+    })
+  } catch {
+    // Agent Context may use StreamableHTTP — fall back
+    return await createMCPClient({
+      transport: { type: 'http' as const, ...transportConfig },
+    })
+  }
+}
+
 export async function POST(req: Request) {
-  const { messages } = await req.json()
+  try {
+    const { messages } = await req.json()
 
-  const mcpClient = await createMCPClient({
-    transport: {
-      type: 'sse',
-      url: process.env.SANITY_CONTEXT_MCP_URL!,
-      headers: {
-        Authorization: `Bearer ${process.env.SANITY_API_READ_TOKEN}`,
+    const mcpClient = await connectMCP()
+    const mcpTools = await mcpClient.tools()
+
+    const resolveUrls = tool({
+      description:
+        'Resolve Sanity document IDs to their URLs. Call this whenever you need to link to a document in your response.',
+      inputSchema: z.object({
+        documentIds: z
+          .array(z.string())
+          .describe('Array of Sanity document IDs to resolve'),
+      }),
+      execute: async ({ documentIds }) => {
+        const urls = await resolver.resolveUrlByIds(documentIds)
+        return urls
       },
-    },
-  })
+    })
 
-  const mcpTools = await mcpClient.tools()
-
-  const resolveUrls = tool({
-    description:
-      'Resolve Sanity document IDs to their URLs. Call this whenever you need to link to a document in your response.',
-    inputSchema: z.object({
-      documentIds: z
-        .array(z.string())
-        .describe('Array of Sanity document IDs to resolve'),
-    }),
-    execute: async ({ documentIds }) => {
-      const urls = await resolver.resolveUrlByIds(documentIds)
-      return urls
-    },
-  })
-
-  const result = streamText({
-    model: anthropic('claude-sonnet-4-20250514'),
-    system: `You are a helpful assistant for a URL Resolution demo site. You can search content using the Sanity Agent Context tools and resolve document URLs using the resolveUrls tool.
+    const result = streamText({
+      model: anthropic('claude-sonnet-4-20250514'),
+      system: `You are a helpful assistant for a URL Resolution demo site. You can search content using the Sanity Agent Context tools and resolve document URLs using the resolveUrls tool.
 
 When answering questions about content:
 1. Use the available query tools to find relevant documents
@@ -62,13 +74,22 @@ When answering questions about content:
 4. Never guess or construct URLs yourself — always use the resolveUrls tool
 
 The content includes articles, blog posts, and documentation about URL resolution patterns.`,
-    messages,
-    tools: { ...mcpTools, resolveUrls },
-    stopWhen: stepCountIs(5),
-    onFinish: async () => {
-      await mcpClient.close()
-    },
-  })
+      messages,
+      tools: { ...mcpTools, resolveUrls },
+      stopWhen: stepCountIs(5),
+      onFinish: async () => {
+        await mcpClient.close()
+      },
+    })
 
-  return result.toUIMessageStreamResponse()
+    return result.toUIMessageStreamResponse()
+  } catch (error) {
+    console.error('Chat API error:', error)
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Internal server error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
 }
