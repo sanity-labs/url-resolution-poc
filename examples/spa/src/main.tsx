@@ -6,6 +6,7 @@ import { resolver } from './lib/routes'
 import { getRedirects } from '@sanity/routes'
 import { ARTICLES_QUERY, BLOG_POSTS_QUERY, BLOG_POST_BY_SLUG_QUERY, ARTICLE_BY_SLUG_QUERY } from './lib/queries'
 import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
 import Home from './routes/Home'
 import BlogPost from './routes/BlogPost'
 import Article from './routes/Article'
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
   {
     path: '/',
     Component: Layout,
+    ErrorBoundary: ErrorBoundary,
     loader: async ({ request }) => {
       const redirectResult = await checkRedirect(request)
       if (redirectResult) return redirectResult

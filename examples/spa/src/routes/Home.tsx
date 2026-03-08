@@ -1,17 +1,11 @@
 import { Link, useLoaderData } from 'react-router'
-import { getPath } from '@sanity/routes'
+import { getPathById } from '../lib/utils'
 
 export default function Home() {
   const { articles, posts, urlMap } = useLoaderData() as {
     articles: Array<{ _id: string; title: string | null }>
     posts: Array<{ _id: string; title: string | null }>
     urlMap: Record<string, string>
-  }
-
-  function getPathById(id: string): string {
-    const url = urlMap[id]
-    if (!url) return '#'
-    return getPath(url) ?? url
   }
 
   return (
@@ -27,8 +21,8 @@ export default function Home() {
         <ul>
           {articles.map((a) => (
             <li key={a._id}>
-              <Link to={getPathById(a._id)}>{a.title}</Link>
-              <code> → {getPathById(a._id)}</code>
+              <Link to={getPathById(a._id, urlMap)}>{a.title}</Link>
+              <code> → {getPathById(a._id, urlMap)}</code>
             </li>
           ))}
         </ul>
@@ -39,8 +33,8 @@ export default function Home() {
         <ul>
           {posts.map((p) => (
             <li key={p._id}>
-              <Link to={getPathById(p._id)}>{p.title}</Link>
-              <code> → {getPathById(p._id)}</code>
+              <Link to={getPathById(p._id, urlMap)}>{p.title}</Link>
+              <code> → {getPathById(p._id, urlMap)}</code>
             </li>
           ))}
         </ul>
