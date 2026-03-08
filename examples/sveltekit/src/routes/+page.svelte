@@ -1,12 +1,13 @@
 <script lang="ts">
+  import { getPath } from '@sanity/routes'
   import type { PageData } from './$types'
 
   let { data }: { data: PageData } = $props()
 
-  function getPath(id: string): string {
+  function getPathById(id: string): string {
     const url = data.urlMap[id]
     if (!url) return '#'
-    try { return new URL(url).pathname } catch { return url }
+    return getPath(url) ?? url
   }
 </script>
 
@@ -18,8 +19,8 @@
   <ul>
     {#each data.articles as article}
       <li>
-        <a href={getPath(article._id)}>{article.title}</a>
-        <code> → {getPath(article._id)}</code>
+        <a href={getPathById(article._id)}>{article.title}</a>
+        <code> → {getPathById(article._id)}</code>
       </li>
     {/each}
   </ul>
@@ -30,8 +31,8 @@
   <ul>
     {#each data.posts as post}
       <li>
-        <a href={getPath(post._id)}>{post.title}</a>
-        <code> → {getPath(post._id)}</code>
+        <a href={getPathById(post._id)}>{post.title}</a>
+        <code> → {getPathById(post._id)}</code>
       </li>
     {/each}
   </ul>

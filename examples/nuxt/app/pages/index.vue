@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getPath } from '@sanity/routes'
 import { ARTICLES_QUERY, BLOG_POSTS_QUERY } from '~/lib/queries'
 
 const { client } = useSanity()
@@ -15,14 +16,10 @@ const { data } = await useAsyncData('home', async () => {
   return { articles, posts, urlMap }
 })
 
-function getPath(id: string): string {
+function getPathById(id: string): string {
   const url = data.value?.urlMap[id]
   if (!url) return '#'
-  try {
-    return new URL(url).pathname
-  } catch {
-    return url
-  }
+  return getPath(url) ?? url
 }
 </script>
 
@@ -38,8 +35,8 @@ function getPath(id: string): string {
       <h2>Articles</h2>
       <ul>
         <li v-for="a in data.articles" :key="a._id">
-          <NuxtLink :to="getPath(a._id)">{{ a.title }}</NuxtLink>
-          <code> → {{ getPath(a._id) }}</code>
+          <NuxtLink :to="getPathById(a._id)">{{ a.title }}</NuxtLink>
+          <code> → {{ getPathById(a._id) }}</code>
         </li>
       </ul>
     </section>
@@ -48,8 +45,8 @@ function getPath(id: string): string {
       <h2>Blog Posts</h2>
       <ul>
         <li v-for="p in data.posts" :key="p._id">
-          <NuxtLink :to="getPath(p._id)">{{ p.title }}</NuxtLink>
-          <code> → {{ getPath(p._id) }}</code>
+          <NuxtLink :to="getPathById(p._id)">{{ p.title }}</NuxtLink>
+          <code> → {{ getPathById(p._id) }}</code>
         </li>
       </ul>
     </section>
