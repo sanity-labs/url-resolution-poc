@@ -46,7 +46,7 @@ describe('resolvePathById', () => {
 })
 
 describe('resolvePathByIds', () => {
-  it('batch resolution — returns Map of pathnames', async () => {
+  it('batch resolution — returns Record of pathnames', async () => {
     const client = createMockClient([
       {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
       {
@@ -68,8 +68,8 @@ describe('resolvePathByIds', () => {
     ])
     const resolver = createRouteResolver(client, 'web')
     const paths = await resolver.resolvePathByIds(['blog-hello', 'blog-intro'])
-    expect(paths.get('blog-hello')).toBe('/blog/hello-world')
-    expect(paths.get('blog-intro')).toBe('/blog/introduction')
+    expect(paths['blog-hello']).toBe('/blog/hello-world')
+    expect(paths['blog-intro']).toBe('/blog/introduction')
   })
 
   it('omits unresolvable IDs', async () => {
@@ -92,9 +92,9 @@ describe('resolvePathByIds', () => {
     ])
     const resolver = createRouteResolver(client, 'web')
     const paths = await resolver.resolvePathByIds(['blog-hello', 'nonexistent'])
-    expect(paths.get('blog-hello')).toBe('/blog/hello-world')
-    expect(paths.has('nonexistent')).toBe(false)
-    expect(paths.size).toBe(1)
+    expect(paths['blog-hello']).toBe('/blog/hello-world')
+    expect('nonexistent' in paths).toBe(false)
+    expect(Object.keys(paths).length).toBe(1)
   })
 })
 

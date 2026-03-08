@@ -378,8 +378,8 @@ export function createRouteResolver(
       return assembleUrl(resolvedBase, route.basePath, path)
     },
 
-    async resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
-      const result = new Map<string, string>()
+    async resolveUrlByIds(ids: string[], options?: LocaleOptions): Promise<Record<string, string>> {
+      const result: Record<string, string> = {}
       if (ids.length === 0) return result
 
       const config = await getConfig()
@@ -415,7 +415,7 @@ export function createRouteResolver(
 
         for (const entry of paths) {
           if (entry.path) {
-            result.set(entry._id, assembleUrl(resolvedBase, route.basePath, entry.path))
+            result[entry._id] = assembleUrl(resolvedBase, route.basePath, entry.path)
           }
         }
       }
@@ -445,12 +445,12 @@ export function createRouteResolver(
       return extractPathname(url)
     },
 
-    async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Map<string, string>> {
+    async resolvePathByIds(ids: string[], options?: LocaleOptions): Promise<Record<string, string>> {
       const urlMap = await resolver.resolveUrlByIds(ids, options)
-      const result = new Map<string, string>()
-      for (const [id, url] of urlMap) {
+      const result: Record<string, string> = {}
+      for (const [id, url] of Object.entries(urlMap)) {
         const pathname = extractPathname(url)
-        if (pathname) result.set(id, pathname)
+        if (pathname) result[id] = pathname
       }
       return result
     },
@@ -536,11 +536,11 @@ export function createRouteResolver(
 
     // --- Static methods (use shards) ---
 
-    async preload(options?: LocaleOptions): Promise<Map<string, string>> {
+    async preload(options?: LocaleOptions): Promise<Record<string, string>> {
       const config = await getConfig()
       const effectiveLocale = options?.locale ?? defaultLocale
       const shards = await fetchAllShards(config, effectiveLocale)
-      const result = new Map<string, string>()
+      const result: Record<string, string> = {}
 
       for (const shard of shards) {
         // Find the route entry for this shard's document type
@@ -550,11 +550,11 @@ export function createRouteResolver(
 
         for (const entry of shard.entries || []) {
           if (!entry.doc?._ref) continue
-          result.set(entry.doc._ref, assembleUrl(resolvedBase, shard.basePath, entry.path))
+          result[entry.doc._ref] = assembleUrl(resolvedBase, shard.basePath, entry.path)
         }
       }
 
-      if (result.size === 0 && shards.length === 0) {
+      if (Object.keys(result).length === 0 && shards.length === 0) {
         console.warn(
           '[@sanity/routes] preload() returned 0 entries. ' +
           'Route map shards require the Sync Function or buildRouteMap(). ' +

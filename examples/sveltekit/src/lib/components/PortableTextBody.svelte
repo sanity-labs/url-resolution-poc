@@ -3,7 +3,7 @@
   import { setContext } from 'svelte'
   import InternalLink from './InternalLink.svelte'
 
-  let { value, urlMap }: { value: any; urlMap: Map<string, string> } = $props()
+  let { value, urlMap }: { value: any; urlMap: Record<string, string> } = $props()
 
   // Pass urlMap via Svelte context so mark components can access it
   setContext('urlMap', urlMap)

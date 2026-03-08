@@ -3,7 +3,7 @@ import { CodeBlock } from './CodeBlock'
 
 interface Props {
   value: any
-  urlMap: Map<string, string>
+  urlMap: Record<string, string>
 }
 
 /**
@@ -32,7 +32,7 @@ export function PortableTextBody({ value, urlMap }: Props) {
         },
         marks: {
           internalLink: ({ value, children }: { value?: { reference?: { _ref: string } }; children: React.ReactNode }) => {
-            const url = value?.reference ? urlMap.get(value.reference._ref) : undefined
+            const url = value?.reference ? urlMap[value.reference._ref] : undefined
             return url ? <a href={url}>{children}</a> : <span>{children}</span>
           },
         },
