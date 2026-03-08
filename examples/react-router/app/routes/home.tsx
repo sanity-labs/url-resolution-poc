@@ -12,7 +12,7 @@ export async function loader() {
 
   // React Router uses JSON serialization — Map doesn't serialize.
   // Convert to plain object for the loader→component boundary.
-  return { articles, posts, urlMap: Object.fromEntries(urlMap) }
+  return { articles, posts, urlMap }
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {

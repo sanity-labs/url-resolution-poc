@@ -13,7 +13,7 @@ export async function loader({ params }: Route.LoaderArgs) {
 
   if (!post) throw data(null, { status: 404 })
 
-  return { post, urlMap: Object.fromEntries(urlMap) }
+  return { post, urlMap }
 }
 
 export default function BlogPost({ loaderData }: Route.ComponentProps) {

@@ -16,7 +16,7 @@ export async function loader({ params }: Route.LoaderArgs) {
 
   if (!article) throw data(null, { status: 404 })
 
-  return { article, urlMap: Object.fromEntries(urlMap) }
+  return { article, urlMap }
 }
 
 export default function DocsArticle({ loaderData }: Route.ComponentProps) {

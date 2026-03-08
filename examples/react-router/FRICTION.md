@@ -2,17 +2,17 @@
 
 Findings from integrating `@sanity/routes` with React Router v7 (framework mode).
 
-## Map Serialization — CONFIRMED
+## Map Serialization — CONFIRMED → RESOLVED
 
 | Severity | Integration Point | Finding |
 |----------|------------------|---------|
-| **High** | `preload()` return type | `preload()` returns `Map<string, string>`. React Router serializes loader data as JSON. `Map` does not JSON-serialize — it becomes `{}`. **Must use `Object.fromEntries(urlMap)` in every loader.** This confirms the SvelteKit friction log finding: `Record<string, string>` would be universally portable. |
+| ~~**High**~~ **Resolved** | `preload()` return type | Originally `preload()` returned `Map<string, string>`, which doesn't JSON-serialize (becomes `{}`). Required `Object.fromEntries(urlMap)` in every loader. **Fixed in PR #24** — `preload()` now returns `Record<string, string>`, which JSON-serializes natively. No conversion needed. |
 
-## PT Component — Record vs Map
+## PT Component — Consistent API
 
 | Severity | Integration Point | Finding |
 |----------|------------------|---------|
-| **Low** | PT internal links | The Next.js example uses `urlMap.get(ref)` (Map API). The React Router example uses `urlMap[ref]` (object property access). Same pattern, different syntax. The PT component must be written differently depending on whether the framework preserves Maps. |
+| **Resolved** | PT internal links | After PR #24, all frameworks use `urlMap[ref]` (property access). No more framework-dependent Map vs Record syntax. |
 
 ## Redirect Integration
 
@@ -22,4 +22,4 @@ Findings from integrating `@sanity/routes` with React Router v7 (framework mode)
 
 ## Overall
 
-The `@sanity/routes` API works in React Router v7 but the Map→Record conversion is mandatory boilerplate in every loader. This is the strongest signal yet that `preload()` should return `Record<string, string>` instead of `Map<string, string>`.
+The friction log → API improvement loop worked: this example identified the Map serialization problem, which was fixed in PR #24 before this example shipped. All loaders now use `preload()` directly without conversion.

@@ -3,7 +3,7 @@ import { resolver } from '~/lib/routes.server'
 export async function loader() {
   const urlMap = await resolver.preload()
 
-  const urls = [...urlMap.values()].map((url) => `  <url>
+  const urls = Object.values(urlMap).map((url) => `  <url>
     <loc>${url}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
