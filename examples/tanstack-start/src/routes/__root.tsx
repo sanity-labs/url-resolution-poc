@@ -2,8 +2,10 @@ import {
   createRootRoute,
   HeadContent,
   Outlet,
+  redirect,
   Scripts,
 } from '@tanstack/react-router'
+import { checkRedirect } from '~/lib/server-fns'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -13,6 +15,15 @@ export const Route = createRootRoute({
       { title: 'URL Resolution POC — TanStack Start' },
     ],
   }),
+  beforeLoad: async ({ location }) => {
+    const match = await checkRedirect({ data: location.pathname })
+    if (match) {
+      throw redirect({
+        href: match.destination,
+        statusCode: match.statusCode,
+      })
+    }
+  },
   component: RootDocument,
 })
 
