@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     const mcpClient = await createMCPClient({
       transport: {
-        type: 'sse',
+        type: 'http',
         url: process.env.SANITY_CONTEXT_MCP_URL!,
         headers: {
           Authorization: `Bearer ${process.env.SANITY_API_READ_TOKEN}`,
