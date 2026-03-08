@@ -318,6 +318,22 @@ export type AllSanitySchemaTypes =
 export declare const internalGroqTypeReferenceTo: unique symbol;
 
 // Source: ../examples/nextjs/lib/queries.ts
+// Variable: ARTICLES_QUERY
+// Query: *[_type == "article"] | order(title asc) { _id, title }
+export type ARTICLES_QUERY_RESULT = Array<{
+  _id: string;
+  title: string | null;
+}>;
+
+// Source: ../examples/nextjs/lib/queries.ts
+// Variable: BLOG_POSTS_QUERY
+// Query: *[_type == "blogPost"] | order(title asc) { _id, title }
+export type BLOG_POSTS_QUERY_RESULT = Array<{
+  _id: string;
+  title: string | null;
+}>;
+
+// Source: ../examples/nextjs/lib/queries.ts
 // Variable: BLOG_POST_BY_SLUG_QUERY
 // Query: *[_type == "blogPost" && slug.current == $slug][0]{    _id, title, body  }
 export type BLOG_POST_BY_SLUG_QUERY_RESULT = {
@@ -399,6 +415,8 @@ export type ARTICLE_BY_SLUG_QUERY_RESULT = {
 import "@sanity/client";
 declare module "@sanity/client" {
   interface SanityQueries {
+    '\n  *[_type == "article"] | order(title asc) { _id, title }\n': ARTICLES_QUERY_RESULT;
+    '\n  *[_type == "blogPost"] | order(title asc) { _id, title }\n': BLOG_POSTS_QUERY_RESULT;
     '\n  *[_type == "blogPost" && slug.current == $slug][0]{\n    _id, title, body\n  }\n': BLOG_POST_BY_SLUG_QUERY_RESULT;
     '\n  *[_type == "article" && slug.current == $lastSlug][0]{\n    _id, title, body\n  }\n': ARTICLE_BY_SLUG_QUERY_RESULT;
   }
