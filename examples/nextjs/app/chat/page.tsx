@@ -5,26 +5,19 @@ import { DefaultChatTransport } from 'ai'
 import { useState } from 'react'
 import { Streamdown } from 'streamdown'
 
-function getMessageText(message: { parts?: Array<{ type: string; text?: string }> }): string {
-  if (!message.parts) return ''
-  return message.parts
-    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-    .map((p) => p.text)
-    .join('')
-}
-
 export default function ChatPage() {
+  const [input, setInput] = useState('')
+
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   })
 
-  const [input, setInput] = useState('')
   const isStreaming = status === 'streaming'
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!input.trim() || isStreaming) return
-    sendMessage({ text: input })
+    await sendMessage({ text: input })
     setInput('')
   }
 
@@ -57,37 +50,51 @@ export default function ChatPage() {
           </div>
         )}
 
-        {messages.map((message) => {
-          const text = getMessageText(message)
-          return (
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
             <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`max-w-2xl rounded-lg px-4 py-3 ${
+                message.role === 'user'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-900'
+              }`}
             >
-              <div
-                className={`max-w-2xl rounded-lg px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                {message.role === 'assistant' ? (
-                  <Streamdown
-                    isAnimating={
-                      isStreaming &&
-                      message.id === messages[messages.length - 1]?.id
-                    }
-                    animated
-                  >
-                    {text}
-                  </Streamdown>
-                ) : (
-                  <p>{text}</p>
-                )}
-              </div>
+              {message.parts.map((part, i) => {
+                if (part.type === 'text') {
+                  return message.role === 'assistant' ? (
+                    <Streamdown
+                      key={i}
+                      isAnimating={
+                        isStreaming &&
+                        message.id === messages[messages.length - 1]?.id
+                      }
+                      animated
+                    >
+                      {part.text}
+                    </Streamdown>
+                  ) : (
+                    <p key={i}>{part.text}</p>
+                  )
+                }
+                if (part.type.startsWith('tool-')) {
+                  const toolPart = part as { type: string; state: string; toolCallId: string }
+                  return (
+                    <div
+                      key={i}
+                      className="text-xs text-gray-500 bg-gray-50 p-2 rounded my-1"
+                    >
+                      🔧 {part.type.replace('tool-', '')}: {toolPart.state}
+                    </div>
+                  )
+                }
+                return null
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
 
         {isStreaming && messages[messages.length - 1]?.role === 'user' && (
           <div className="flex justify-start">

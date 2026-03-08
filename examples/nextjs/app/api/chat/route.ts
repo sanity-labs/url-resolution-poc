@@ -1,10 +1,18 @@
-import { streamText, tool, stepCountIs } from 'ai'
+import {
+  streamText,
+  convertToModelMessages,
+  UIMessage,
+  tool,
+  stepCountIs,
+} from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createMCPClient } from '@ai-sdk/mcp'
-import { z } from 'zod/v3'
+import { z } from 'zod'
 import { createClient } from '@sanity/client'
 import { createRouteResolver } from '@sanity/routes'
 import { projectId, dataset, apiVersion } from '@/lib/sanity'
+
+export const maxDuration = 120
 
 const authenticatedClient = createClient({
   projectId,
@@ -22,46 +30,21 @@ const anthropic = createAnthropic({
   apiKey: process.env.CHATBOT_ANTHROPIC_API_KEY,
 })
 
-async function connectMCP() {
-  const transportConfig = {
-    url: process.env.SANITY_CONTEXT_MCP_URL!,
-    headers: {
-      Authorization: `Bearer ${process.env.SANITY_API_READ_TOKEN}`,
-    },
-  }
-
-  try {
-    return await createMCPClient({
-      transport: { type: 'sse' as const, ...transportConfig },
-    })
-  } catch {
-    // Agent Context may use StreamableHTTP — fall back
-    return await createMCPClient({
-      transport: { type: 'http' as const, ...transportConfig },
-    })
-  }
-}
-
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json()
+    const { messages }: { messages: UIMessage[] } = await req.json()
 
-    const mcpClient = await connectMCP()
-    const mcpTools = await mcpClient.tools()
-
-    const resolveUrls = tool({
-      description:
-        'Resolve Sanity document IDs to their URLs. Call this whenever you need to link to a document in your response.',
-      inputSchema: z.object({
-        documentIds: z
-          .array(z.string())
-          .describe('Array of Sanity document IDs to resolve'),
-      }),
-      execute: async ({ documentIds }) => {
-        const urls = await resolver.resolveUrlByIds(documentIds)
-        return urls
+    const mcpClient = await createMCPClient({
+      transport: {
+        type: 'sse',
+        url: process.env.SANITY_CONTEXT_MCP_URL!,
+        headers: {
+          Authorization: `Bearer ${process.env.SANITY_API_READ_TOKEN}`,
+        },
       },
     })
+
+    const mcpTools = await mcpClient.tools()
 
     const result = streamText({
       model: anthropic('claude-sonnet-4-20250514'),
@@ -74,8 +57,22 @@ When answering questions about content:
 4. Never guess or construct URLs yourself — always use the resolveUrls tool
 
 The content includes articles, blog posts, and documentation about URL resolution patterns.`,
-      messages,
-      tools: { ...mcpTools, resolveUrls },
+      messages: await convertToModelMessages(messages),
+      tools: {
+        ...mcpTools,
+        resolveUrls: tool({
+          description:
+            'Resolve Sanity document IDs to their URLs. Call this whenever you need to link to a document in your response.',
+          inputSchema: z.object({
+            documentIds: z
+              .array(z.string())
+              .describe('Array of Sanity document IDs to resolve'),
+          }),
+          execute: async ({ documentIds }) => {
+            return await resolver.resolveUrlByIds(documentIds)
+          },
+        }),
+      },
       stopWhen: stepCountIs(5),
       onFinish: async () => {
         await mcpClient.close()
@@ -87,7 +84,8 @@ The content includes articles, blog posts, and documentation about URL resolutio
     console.error('Chat API error:', error)
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'Internal server error',
+        error:
+          error instanceof Error ? error.message : 'Internal server error',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },
     )
