@@ -1,0 +1,25 @@
+---
+import { sanityClient } from 'sanity:client'
+import Base from '../../layouts/Base.astro'
+import PortableTextBody from '../../components/PortableTextBody.astro'
+import { resolver } from '../../lib/routes'
+import { BLOG_POST_BY_SLUG_QUERY } from '../../lib/queries'
+
+const { slug } = Astro.params
+
+const [post, urlMap] = await Promise.all([
+  sanityClient.fetch(BLOG_POST_BY_SLUG_QUERY, { slug }),
+  resolver.preload(),
+])
+
+if (!post) {
+  return Astro.redirect('/404')
+}
+---
+
+<Base title={post.title ?? 'Blog Post'}>
+  <article>
+    <h1>{post.title}</h1>
+    {post.body && <PortableTextBody value={post.body} urlMap={urlMap} />}
+  </article>
+</Base>

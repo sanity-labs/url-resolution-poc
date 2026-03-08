@@ -1,0 +1,54 @@
+---
+import { sanityClient } from 'sanity:client'
+import Base from '../layouts/Base.astro'
+import { resolver } from '../lib/routes'
+import { ARTICLES_QUERY, BLOG_POSTS_QUERY } from '../lib/queries'
+
+const [articles, posts, urlMap] = await Promise.all([
+  sanityClient.fetch(ARTICLES_QUERY),
+  sanityClient.fetch(BLOG_POSTS_QUERY),
+  resolver.preload(),
+])
+
+function getPath(id: string): string {
+  const url = urlMap[id]
+  if (!url) return '#'
+  try {
+    return new URL(url).pathname
+  } catch {
+    return url
+  }
+}
+---
+
+<Base title="Home">
+  <h1>URL Resolution POC</h1>
+  <p>
+    Proving two-tier URL resolution for Sanity structured content —
+    Astro edition.
+  </p>
+
+  <section>
+    <h2>Articles</h2>
+    <ul>
+      {articles.map((a) => (
+        <li>
+          <a href={getPath(a._id)}>{a.title}</a>
+          <code> &rarr; {getPath(a._id)}</code>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section>
+    <h2>Blog Posts</h2>
+    <ul>
+      {posts.map((p) => (
+        <li>
+          <a href={getPath(p._id)}>{p.title}</a>
+          <code> &rarr; {getPath(p._id)}</code>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Base>

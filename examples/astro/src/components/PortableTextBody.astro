@@ -1,0 +1,37 @@
+---
+import { PortableText } from 'astro-portabletext'
+
+interface Props {
+  value: any
+  urlMap: Record<string, string>
+}
+
+const { value, urlMap } = Astro.props
+
+function getPath(url: string): string {
+  try {
+    return new URL(url).pathname
+  } catch {
+    return url
+  }
+}
+---
+
+{value && (
+  <PortableText value={value}>
+    <fragment slot="mark">{({ Component, props, children }) => {
+      const { node } = props
+
+      if (node.markType === 'internalLink') {
+        const docId = node.markDef?.reference?._ref
+        const url = docId ? urlMap[docId] : undefined
+        const href = url ? getPath(url) : '#'
+        return url
+          ? <a href={href}>{children}</a>
+          : <span>{children}</span>
+      }
+
+      return <Component {...props}>{children}</Component>
+    }}</fragment>
+  </PortableText>
+)}
