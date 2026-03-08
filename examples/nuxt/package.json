@@ -1,0 +1,23 @@
+{
+  "name": "example-nuxt",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "pnpm --filter @sanity/routes build && nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "typegen": "cd ../../studio && pnpx sanity schema extract --enforce-required-fields && pnpx sanity typegen generate"
+  },
+  "dependencies": {
+    "@nuxtjs/sanity": "^2.0.0",
+    "@portabletext/vue": "^1.0.0",
+    "@sanity/routes": "workspace:*",
+    "nuxt": "^3.16.0",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
