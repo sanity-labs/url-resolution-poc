@@ -4,6 +4,7 @@ import { presentationTool } from 'sanity/presentation'
 import { codeInput } from '@sanity/code-input'
 import { routesPlugin } from '@sanity/routes/studio'
 import { routesPresentation } from '@sanity/routes'
+import { agentContextPlugin } from '@sanity/agent-context/studio'
 import { schemaTypes } from './schemas'
 import { structure } from './structure'
 
@@ -19,6 +20,7 @@ export default defineConfig({
     structureTool({ structure }),
     routesPlugin({ types: ['article', 'blogPost'] }),
     codeInput(),
+    agentContextPlugin(),
     presentationTool({
       previewUrl: {
         origin: process.env.SANITY_STUDIO_PREVIEW_ORIGIN || 'http://localhost:3000',

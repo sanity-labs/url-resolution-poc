@@ -8,14 +8,20 @@
     "typegen": "cd ../studio && pnpx sanity schema extract --enforce-required-fields && pnpx sanity typegen generate"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/mcp": "^1.0.25",
+    "@ai-sdk/react": "^3.0.118",
     "@portabletext/react": "^6.0.3",
     "@sanity/client": "^7.16.0",
     "@sanity/routes": "workspace:*",
+    "ai": "^6.0.116",
     "next": "^16.1.6",
     "next-sanity": "^12.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "sugar-high": "^0.9.5"
+    "streamdown": "^2.4.0",
+    "sugar-high": "^0.9.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
