@@ -2,6 +2,7 @@ import type { Route } from './+types/home'
 import { client } from '~/lib/sanity.server'
 import { resolver } from '~/lib/routes.server'
 import { ARTICLES_QUERY, BLOG_POSTS_QUERY } from '~/lib/queries'
+import { getPath } from '@sanity/routes'
 
 export async function loader() {
   const [articles, posts, urlMap] = await Promise.all([
@@ -18,10 +19,10 @@ export async function loader() {
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { articles, posts, urlMap } = loaderData
 
-  function getPath(id: string): string {
+  function getPathById(id: string): string {
     const url = urlMap[id]
     if (!url) return '#'
-    try { return new URL(url).pathname } catch { return url }
+    return getPath(url) ?? url
   }
 
   return (
@@ -34,8 +35,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <ul>
           {articles.map((a) => (
             <li key={a._id}>
-              <a href={getPath(a._id)}>{a.title}</a>
-              <code> → {getPath(a._id)}</code>
+              <a href={getPathById(a._id)}>{a.title}</a>
+              <code> → {getPathById(a._id)}</code>
             </li>
           ))}
         </ul>
@@ -46,8 +47,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <ul>
           {posts.map((p) => (
             <li key={p._id}>
-              <a href={getPath(p._id)}>{p.title}</a>
-              <code> → {getPath(p._id)}</code>
+              <a href={getPathById(p._id)}>{p.title}</a>
+              <code> → {getPathById(p._id)}</code>
             </li>
           ))}
         </ul>

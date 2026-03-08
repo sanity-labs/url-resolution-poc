@@ -1,4 +1,5 @@
 import { PortableText } from '@portabletext/react'
+import { getPath } from '@sanity/routes'
 
 interface Props {
   value: any
@@ -22,7 +23,7 @@ export function PortableTextBody({ value, urlMap }: Props) {
         marks: {
           internalLink: ({ value: mark, children }) => {
             const url = mark?.reference ? urlMap[mark.reference._ref] : undefined
-            const href = url ? (() => { try { return new URL(url).pathname } catch { return url } })() : '#'
+            const href = url ? (getPath(url) ?? url) : '#'
             return url ? <a href={href}>{children}</a> : <span>{children}</span>
           },
         },

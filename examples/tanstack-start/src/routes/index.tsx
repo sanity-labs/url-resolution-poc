@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { fetchHomeData } from '~/lib/server-fns'
+import { getPath } from '@sanity/routes'
 
 export const Route = createFileRoute('/')(
   {
@@ -11,14 +12,10 @@ export const Route = createFileRoute('/')(
 function Home() {
   const { articles, posts, urlMap } = Route.useLoaderData()
 
-  function getPath(id: string): string {
+  function getPathById(id: string): string {
     const url = urlMap[id]
     if (!url) return '#'
-    try {
-      return new URL(url).pathname
-    } catch {
-      return url
-    }
+    return getPath(url) ?? url
   }
 
   return (
@@ -34,8 +31,8 @@ function Home() {
         <ul>
           {articles.map((a) => (
             <li key={a._id}>
-              <a href={getPath(a._id)}>{a.title}</a>
-              <code> → {getPath(a._id)}</code>
+              <a href={getPathById(a._id)}>{a.title}</a>
+              <code> → {getPathById(a._id)}</code>
             </li>
           ))}
         </ul>
@@ -46,8 +43,8 @@ function Home() {
         <ul>
           {posts.map((p) => (
             <li key={p._id}>
-              <a href={getPath(p._id)}>{p.title}</a>
-              <code> → {getPath(p._id)}</code>
+              <a href={getPathById(p._id)}>{p.title}</a>
+              <code> → {getPathById(p._id)}</code>
             </li>
           ))}
         </ul>
