@@ -1,0 +1,30 @@
+---
+import { PortableText } from 'astro-portabletext'
+import { getPath } from '@sanity/routes'
+
+interface Props {
+  value: any
+  urlMap: Record<string, string>
+}
+
+const { value, urlMap } = Astro.props
+---
+
+{value && (
+  <PortableText value={value}>
+    <fragment slot="mark">{({ Component, props, children }) => {
+      const { node } = props
+
+      if (node.markType === 'internalLink') {
+        const docId = node.markDef?.reference?._ref
+        const url = docId ? urlMap[docId] : undefined
+        const href = url ? (getPath(url) ?? url) : '#'
+        return url
+          ? <a href={href}>{children}</a>
+          : <span>{children}</span>
+      }
+
+      return <Component {...props}>{children}</Component>
+    }}</fragment>
+  </PortableText>
+)}

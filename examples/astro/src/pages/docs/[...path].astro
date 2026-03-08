@@ -1,0 +1,27 @@
+---
+import { sanityClient } from 'sanity:client'
+import Base from '../../layouts/Base.astro'
+import PortableTextBody from '../../components/PortableTextBody.astro'
+import { resolver } from '../../lib/routes'
+import { ARTICLE_BY_SLUG_QUERY } from '../../lib/queries'
+
+const { path } = Astro.params
+const segments = (path || '').split('/')
+const lastSlug = segments[segments.length - 1]
+
+const [article, urlMap] = await Promise.all([
+  sanityClient.fetch(ARTICLE_BY_SLUG_QUERY, { slug: lastSlug }),
+  resolver.preload(),
+])
+
+if (!article) {
+  return Astro.redirect('/404')
+}
+---
+
+<Base title={article.title ?? 'Article'}>
+  <article>
+    <h1>{article.title}</h1>
+    {article.body && <PortableTextBody value={article.body} urlMap={urlMap} />}
+  </article>
+</Base>
