@@ -1,13 +1,8 @@
-import { createClient } from '@sanity/client'
-
+/**
+ * Re-export the Sanity client from @nuxtjs/sanity module.
+ * Keeps the same `useSanityClient()` API used by routes.ts and redirects.ts,
+ * but delegates to the module's pre-configured client instead of creating our own.
+ */
 export function useSanityClient() {
-  const config = useRuntimeConfig()
-
-  return createClient({
-    projectId: 'bb8k7pej',
-    dataset: 'production',
-    apiVersion: '2026-03-01',
-    useCdn: true,
-    token: config.sanityReadToken || undefined,
-  })
+  return useSanity().client
 }

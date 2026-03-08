@@ -2,9 +2,9 @@
 import { BLOG_POST_BY_SLUG_QUERY } from '~/lib/queries'
 
 const route = useRoute()
+const { client } = useSanity()
 
 const { data } = await useAsyncData(`blog-${route.params.slug}`, async () => {
-  const client = useSanityClient()
   const resolver = useRouteResolver()
 
   const [post, urlMap] = await Promise.all([

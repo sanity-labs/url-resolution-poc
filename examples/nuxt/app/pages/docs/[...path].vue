@@ -2,6 +2,7 @@
 import { ARTICLE_BY_SLUG_QUERY } from '~/lib/queries'
 
 const route = useRoute()
+const { client } = useSanity()
 
 const pathSegments = Array.isArray(route.params.path)
   ? route.params.path
@@ -9,7 +10,6 @@ const pathSegments = Array.isArray(route.params.path)
 const lastSlug = pathSegments[pathSegments.length - 1]
 
 const { data } = await useAsyncData(`docs-${pathSegments.join('-')}`, async () => {
-  const client = useSanityClient()
   const resolver = useRouteResolver()
 
   const [article, urlMap] = await Promise.all([

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ARTICLES_QUERY, BLOG_POSTS_QUERY } from '~/lib/queries'
 
+const { client } = useSanity()
+
 const { data } = await useAsyncData('home', async () => {
-  const client = useSanityClient()
   const resolver = useRouteResolver()
 
   const [articles, posts, urlMap] = await Promise.all([

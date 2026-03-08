@@ -1,12 +1,24 @@
 # Nuxt 3 Integration — Friction Log
 
-Findings from integrating `@sanity/routes` with Nuxt 3 (fifth framework example, first Vue-based).
+Findings from integrating `@sanity/routes` with Nuxt 3 using `@nuxtjs/sanity` module.
+
+## @nuxtjs/sanity Module — Centralized Config
+
+| Severity | Integration Point | Finding |
+|----------|------------------|---------|
+| **None** | Client setup | `@nuxtjs/sanity` centralizes Sanity config in `nuxt.config.ts` under `sanity: { ... }`. No manual `createClient()` calls needed. The module provides `useSanity()` composable (auto-imported in both app and server contexts) which exposes `.client` and `.fetch()`. Token is set via `runtimeConfig.sanity.token` / `NUXT_SANITY_TOKEN` env var. |
 
 ## Server Utils — Clean Pattern
 
 | Severity | Integration Point | Finding |
 |----------|------------------|---------|
-| **None** | Resolver setup | Nuxt's `server/utils/` auto-import is a natural fit. `useSanityClient()` and `useRouteResolver()` are available everywhere in server code without explicit imports. Only package imports (`@sanity/routes`, `@sanity/client`) need explicit `import` statements — Nuxt auto-imports handle the rest. Cleanest setup of any framework so far. |
+| **None** | Resolver setup | Nuxt's `server/utils/` auto-import is a natural fit. `useSanityClient()` wraps `useSanity().client` to provide the raw `@sanity/client` instance that `@sanity/routes` needs. `useRouteResolver()` is available everywhere in server code without explicit imports. Only package imports (`@sanity/routes`) need explicit `import` statements — Nuxt auto-imports handle the rest. |
+
+## useSanity() — App + Server Contexts
+
+| Severity | Integration Point | Finding |
+|----------|------------------|---------|
+| **None** | Data fetching | `useSanity().client` is available in both app pages and server utils. Pages use `const { client } = useSanity()` for GROQ queries inside `useAsyncData`. Server utils use the same client via the `useSanityClient()` wrapper. Single source of truth for the Sanity client. |
 
 ## useAsyncData — Right Composable
 
@@ -32,21 +44,21 @@ Findings from integrating `@sanity/routes` with Nuxt 3 (fifth framework example,
 |----------|------------------|---------|
 | **None** | `preload()` return type | Nuxt uses devalue (same as SvelteKit) for SSR payload serialization. Supports `Map`, `Set`, `Date`, `BigInt` natively. `Record<string, string>` works perfectly, and `Map` would have worked too. The Map→Record change was driven by React Router/TanStack Start (JSON serializers), not by Nuxt/SvelteKit (devalue serializers). |
 
-## runtimeConfig — Env Var Mapping
+## Token Env Var — Module Convention
 
 | Severity | Integration Point | Finding |
 |----------|------------------|---------|
-| **Low** | Environment variables | Nuxt auto-maps `NUXT_*` env vars to `runtimeConfig`. So `NUXT_SANITY_READ_TOKEN` maps to `runtimeConfig.sanityReadToken`. The naming convention is different from other frameworks (`SANITY_READ_TOKEN`). Minor but means `.env` files aren't portable across examples. |
+| **Low** | Environment variables | `@nuxtjs/sanity` uses `runtimeConfig.sanity.token` which maps to `NUXT_SANITY_TOKEN` env var. This differs from the manual setup (`NUXT_SANITY_READ_TOKEN` → `runtimeConfig.sanityReadToken`). The module convention is cleaner but means `.env` files aren't portable across examples. |
 
-## Auto-Imports — No Conflict
+## groq Package — Transitive Dependency
 
 | Severity | Integration Point | Finding |
 |----------|------------------|---------|
-| **None** | `defineQuery()` | Explicit `import { defineQuery } from 'groq'` takes precedence over Nuxt auto-imports. No naming conflicts despite Nuxt's `define*` convention. |
+| **None** | `defineQuery()` | `groq` is a transitive dependency of `@nuxtjs/sanity`, so `import { defineQuery } from 'groq'` still works in `lib/queries.ts` without listing `groq` as a direct dependency. The module also auto-imports `defineQuery` and `groq` in Nuxt-processed files. |
 
 ## Overall
 
-Nuxt is the **cleanest integration** so far. Server utils auto-import, server middleware for redirects, `useAsyncData` for data fetching — everything has a natural home. The only friction is Vue-specific (PT `h()` render functions), not `@sanity/routes`-specific.
+Nuxt with `@nuxtjs/sanity` is the **cleanest integration** so far. The module centralizes Sanity config, provides auto-imported composables for both app and server contexts, and eliminates manual `createClient()` boilerplate. Server utils auto-import, server middleware for redirects, `useAsyncData` for data fetching — everything has a natural home.
 
 ### Cross-Framework Comparison
 
