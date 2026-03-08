@@ -8,38 +8,37 @@ import {
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createMCPClient } from '@ai-sdk/mcp'
 import { z } from 'zod'
-import { createClient } from '@sanity/client'
-import { createRouteResolver } from '@sanity/routes'
-import { projectId, dataset, apiVersion } from '@/lib/sanity'
+import { resolver } from '@/lib/routes'
 
 export const maxDuration = 120
 
-const authenticatedClient = createClient({
-  projectId,
-  dataset,
-  apiVersion,
-  useCdn: false,
-  token: process.env.SANITY_API_READ_TOKEN,
-})
-
-const resolver = createRouteResolver(authenticatedClient, 'web', {
-  environment: 'production',
-})
-
-const anthropic = createAnthropic({
-  apiKey: process.env.CHATBOT_ANTHROPIC_API_KEY,
-})
+function getRequiredEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(
+      `Missing required environment variable: ${name}. ` +
+        'See .env.local.example for setup instructions.',
+    )
+  }
+  return value
+}
 
 export async function POST(req: Request) {
   try {
+    const anthropicKey = getRequiredEnv('CHATBOT_ANTHROPIC_API_KEY')
+    const mcpUrl = getRequiredEnv('SANITY_CONTEXT_MCP_URL')
+    const sanityToken = getRequiredEnv('SANITY_API_READ_TOKEN')
+
     const { messages }: { messages: UIMessage[] } = await req.json()
+
+    const anthropic = createAnthropic({ apiKey: anthropicKey })
 
     const mcpClient = await createMCPClient({
       transport: {
         type: 'http',
-        url: process.env.SANITY_CONTEXT_MCP_URL!,
+        url: mcpUrl,
         headers: {
-          Authorization: `Bearer ${process.env.SANITY_API_READ_TOKEN}`,
+          Authorization: `Bearer ${sanityToken}`,
         },
       },
     })

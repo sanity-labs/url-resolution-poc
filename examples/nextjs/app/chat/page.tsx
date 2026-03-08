@@ -2,17 +2,22 @@
 
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Streamdown } from 'streamdown'
 
 export default function ChatPage() {
   const [input, setInput] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   })
 
   const isStreaming = status === 'streaming'
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,7 +41,7 @@ export default function ChatPage() {
         </p>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-400 mt-20">
             <p className="text-lg">Try asking:</p>
