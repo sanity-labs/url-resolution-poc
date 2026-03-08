@@ -21,6 +21,10 @@ export default async function Home() {
       <h1>URL Resolution POC</h1>
       <p>Proving two-tier URL resolution for Sanity structured content.</p>
 
+      <nav>
+        <a href="/chat">💬 Chat with Content</a>
+      </nav>
+
       <section>
         <h2>Articles</h2>
         <ul>
