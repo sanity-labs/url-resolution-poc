@@ -1,15 +1,32 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport } from 'ai'
+import { useState } from 'react'
 import { Streamdown } from 'streamdown'
 
-export default function ChatPage() {
-  const { messages, input, handleInputChange, handleSubmit, status, error } =
-    useChat({
-      api: '/api/chat',
-    })
+function getMessageText(message: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!message.parts) return ''
+  return message.parts
+    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+    .map((p) => p.text)
+    .join('')
+}
 
+export default function ChatPage() {
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+  })
+
+  const [input, setInput] = useState('')
   const isStreaming = status === 'streaming'
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!input.trim() || isStreaming) return
+    sendMessage({ text: input })
+    setInput('')
+  }
 
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
@@ -40,33 +57,37 @@ export default function ChatPage() {
           </div>
         )}
 
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+        {messages.map((message) => {
+          const text = getMessageText(message)
+          return (
             <div
-              className={`max-w-2xl rounded-lg px-4 py-3 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-900'
-              }`}
+              key={message.id}
+              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              {message.role === 'assistant' ? (
-                <Streamdown
-                  text={message.content}
-                  isAnimating={
-                    isStreaming &&
-                    message.id === messages[messages.length - 1]?.id
-                  }
-                  animated
-                />
-              ) : (
-                <p>{message.content}</p>
-              )}
+              <div
+                className={`max-w-2xl rounded-lg px-4 py-3 ${
+                  message.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-900'
+                }`}
+              >
+                {message.role === 'assistant' ? (
+                  <Streamdown
+                    isAnimating={
+                      isStreaming &&
+                      message.id === messages[messages.length - 1]?.id
+                    }
+                    animated
+                  >
+                    {text}
+                  </Streamdown>
+                ) : (
+                  <p>{text}</p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {isStreaming && messages[messages.length - 1]?.role === 'user' && (
           <div className="flex justify-start">
@@ -87,7 +108,7 @@ export default function ChatPage() {
         <div className="flex gap-2">
           <input
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about content..."
             disabled={isStreaming}
             className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"

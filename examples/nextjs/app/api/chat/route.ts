@@ -1,19 +1,20 @@
-import { streamText, tool } from 'ai'
+import { streamText, tool, stepCountIs } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createMCPClient } from '@ai-sdk/mcp'
-import { z } from 'zod'
+import { z } from 'zod/v3'
 import { createClient } from '@sanity/client'
 import { createRouteResolver } from '@sanity/routes'
+import { projectId, dataset, apiVersion } from '@/lib/sanity'
 
-const client = createClient({
-  projectId: 'bb8k7pej',
-  dataset: 'production',
-  apiVersion: '2026-03-01',
+const authenticatedClient = createClient({
+  projectId,
+  dataset,
+  apiVersion,
   useCdn: false,
   token: process.env.SANITY_API_READ_TOKEN,
 })
 
-const resolver = createRouteResolver(client, 'web', {
+const resolver = createRouteResolver(authenticatedClient, 'web', {
   environment: 'production',
 })
 
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   const resolveUrls = tool({
     description:
       'Resolve Sanity document IDs to their URLs. Call this whenever you need to link to a document in your response.',
-    parameters: z.object({
+    inputSchema: z.object({
       documentIds: z
         .array(z.string())
         .describe('Array of Sanity document IDs to resolve'),
@@ -63,11 +64,11 @@ When answering questions about content:
 The content includes articles, blog posts, and documentation about URL resolution patterns.`,
     messages,
     tools: { ...mcpTools, resolveUrls },
-    maxSteps: 5,
+    stopWhen: stepCountIs(5),
     onFinish: async () => {
       await mcpClient.close()
     },
   })
 
-  return result.toDataStreamResponse()
+  return result.toUIMessageStreamResponse()
 }
