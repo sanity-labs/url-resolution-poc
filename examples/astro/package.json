@@ -9,14 +9,14 @@
     "typegen": "cd ../../studio && pnpx sanity schema extract --enforce-required-fields && pnpx sanity typegen generate"
   },
   "dependencies": {
-    "@sanity/astro": "^3.2.0",
+    "@sanity/astro": "^3.2.11",
     "@sanity/client": "^7.16.0",
     "@sanity/routes": "workspace:*",
-    "astro": "^5.0.0",
-    "astro-portabletext": "^0.11.0",
-    "groq": "^3.0.0"
+    "astro": "^5.18.0",
+    "astro-portabletext": "^0.11.4",
+    "groq": "^3.99.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^5.9.3"
   }
 }

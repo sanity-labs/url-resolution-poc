@@ -10,14 +10,14 @@
     "typegen": "cd ../../studio && pnpx sanity schema extract --enforce-required-fields && pnpx sanity typegen generate"
   },
   "dependencies": {
-    "@nuxtjs/sanity": "^2.0.0",
-    "@portabletext/vue": "^1.0.0",
+    "@nuxtjs/sanity": "^2.2.0",
+    "@portabletext/vue": "^1.0.14",
     "@sanity/routes": "workspace:*",
-    "nuxt": "^3.16.0",
-    "vue": "^3.5.0",
-    "vue-router": "^4.5.0"
+    "nuxt": "^4.3.1",
+    "vue": "^3.5.29",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^5.9.3"
   }
 }

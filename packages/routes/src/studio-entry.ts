@@ -11,6 +11,6 @@
  */
 export {routesPlugin} from './plugin.js'
 export type {RoutesPluginOptions} from './plugin.js'
-export {routeConfig, routeMap, createRouteMapType} from './schema.js'
+export {routeConfig, createRouteMapType} from './schema.js'
 export {RouteEntryInput, DocumentTypePicker, PathExpressionField, SlugWithUrlPreview, createSlugWithUrlPreview} from './components/index.js'
 export {uniqueSlug} from './validation.js'

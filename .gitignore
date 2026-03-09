@@ -15,3 +15,8 @@ node-compile-cache/
 packages/routes/docs/api
 .zed
 .mcp.json
+
+# Generated files
+studio/schema.json
+**/sanity.types.ts
+**/next-env.d.ts

@@ -1,3 +1,3 @@
-import {createRouteSyncHandler} from './_handler.js'
+import {createRouteSyncHandler} from '@sanity/routes/handler'
 
 export const handler = createRouteSyncHandler('web')

@@ -436,8 +436,3 @@ export function createRouteMapType(routableTypes?: string[]) {
   })
 }
 
-/**
- * @deprecated Use `createRouteMapType()` via `routesPlugin({ types: [...] })` instead.
- * This static export uses the object fallback (no proper reference types).
- */
-export const routeMap = createRouteMapType()

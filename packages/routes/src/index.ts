@@ -7,7 +7,7 @@ export {routesPresentation} from './presentation.js'
 export type {RoutesPresentationOptions} from './presentation.js'
 
 // ─── Schema ──────────────────────────────────────────────────────────
-export {routeConfig, routeMap, createRouteMapType} from './schema.js'
+export {routeConfig, createRouteMapType} from './schema.js'
 
 // ─── Components ──────────────────────────────────────────────────────
 export {RouteEntryInput, DocumentTypePicker, PathExpressionField, SlugWithUrlPreview} from './components/index.js'

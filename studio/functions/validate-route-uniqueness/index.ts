@@ -1,6 +1,12 @@
 import {documentEventHandler} from '@sanity/functions'
 import {createClient} from '@sanity/client'
 
+interface RouteConfigEntry {
+  types?: string[]
+  pathExpression?: string
+  basePath?: string
+}
+
 export const handler = documentEventHandler(async ({context, event}) => {
   const client = createClient({
     ...context.clientOptions,
@@ -22,7 +28,7 @@ export const handler = documentEventHandler(async ({context, event}) => {
   if (!config) return
 
   // Find route entry for this type
-  const route = config.routes?.find((r: any) => r.types?.includes(docType))
+  const route = config.routes?.find((r: RouteConfigEntry) => r.types?.includes(docType))
   if (!route) return
 
   const pathExpr = route.pathExpression || 'slug.current'
@@ -38,7 +44,7 @@ export const handler = documentEventHandler(async ({context, event}) => {
   const fullPath = normalizePath(basePath + '/' + pathRaw)
 
   // Check all shards for a different document with the same resolved path
-  const routableTypes = config.routes.flatMap((r: any) => r.types || [])
+  const routableTypes = config.routes.flatMap((r: RouteConfigEntry) => r.types || [])
   const shardIds = routableTypes.map(
     (t: string) => `routes-${config.channel || 'web'}-${t}`,
   )

@@ -1,8 +1,8 @@
-import { PortableText } from '@portabletext/react'
+import { PortableText, type PortableTextBlock } from '@portabletext/react'
 import { CodeBlock } from './CodeBlock'
 
 interface Props {
-  value: any
+  value: PortableTextBlock[]
   urlMap: Record<string, string>
 }
 

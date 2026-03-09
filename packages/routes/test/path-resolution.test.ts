@@ -108,15 +108,6 @@ describe('pathProjection', () => {
     expect(projection).toBe('"path": slug.current')
   })
 
-  it('groqField deprecated alias returns same result', async () => {
-    const client = createMockClient([
-      {query: Q_CONFIG_BY_CHANNEL, params: {channel: 'web'}, result: WEB_CONFIG},
-    ])
-    const resolver = createRouteResolver(client, 'web')
-    const fromPathProjection = await resolver.pathProjection('blogPost')
-    const fromGroqField = await resolver.groqField('blogPost')
-    expect(fromGroqField).toBe(fromPathProjection)
-  })
 })
 
 describe('getPath', () => {

@@ -1,5 +1,5 @@
-import {documentEventHandler} from '@sanity/functions'
-import {createClient} from '@sanity/client'
+import {documentEventHandler, type FunctionContext, type DocumentEvent} from '@sanity/functions'
+import {createClient, type SanityClient, type Patch} from '@sanity/client'
 import {getPublishedId} from '@sanity/id-utils'
 import type {RouteEntry, RoutesConfig} from './types.js'
 
@@ -18,7 +18,7 @@ import type {RouteEntry, RoutesConfig} from './types.js'
  * ```
  */
 export function createRouteSyncHandler(channel: string) {
-  return documentEventHandler(async ({context, event}: {context: any; event: any}) => {
+  return documentEventHandler(async ({context, event}: {context: FunctionContext; event: DocumentEvent & {type?: string}}) => {
     try {
     const client = createClient({
       ...context.clientOptions,
@@ -165,7 +165,7 @@ export function createRouteSyncHandler(channel: string) {
  * @internal
  */
 async function syncSingleDocument(
-  client: any,
+  client: SanityClient,
   routeEntry: RouteEntry,
   channel: string,
   docId: string,
@@ -204,10 +204,10 @@ async function syncSingleDocument(
     })
 
   if (shard?.entryKey) {
-    tx.patch(shardId, (p: any) => p.unset([`entries[_key=="${shard.entryKey}"]`]))
+    tx.patch(shardId, (p: Patch) => p.unset([`entries[_key=="${shard.entryKey}"]`]))
   }
 
-  tx.patch(shardId, (p: any) =>
+  tx.patch(shardId, (p: Patch) =>
     p.insert('after', 'entries[-1]', [
       {
         doc: {_ref: docId, _type: 'reference', _weak: true},
@@ -226,10 +226,10 @@ async function syncSingleDocument(
  * Used to find child document IDs when the parent references children.
  * @internal
  */
-function extractRefs(obj: any): string[] {
+function extractRefs(obj: unknown): string[] {
   const refs: string[] = []
   if (!obj || typeof obj !== 'object') return refs
-  if (obj._ref) refs.push(obj._ref)
+  if ('_ref' in obj && typeof (obj as Record<string, unknown>)._ref === 'string') refs.push((obj as Record<string, unknown>)._ref as string)
   for (const val of Object.values(obj)) {
     if (Array.isArray(val)) {
       for (const item of val) {

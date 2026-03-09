@@ -9,20 +9,20 @@
   },
   "dependencies": {
     "@sanity/agent-context": "^0.3.4",
-    "@sanity/blueprints": "^0.12.2",
+    "@sanity/blueprints": "^0.12.3",
     "@sanity/client": "^7.16.0",
-    "@sanity/code-input": "^7.0.8",
-    "@sanity/functions": "^1.2.0",
+    "@sanity/code-input": "^7.0.11",
+    "@sanity/functions": "^1.2.1",
     "@sanity/icons": "^3.7.4",
     "@sanity/routes": "workspace:*",
     "@sanity/vision": "^5.13.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "sanity": "^5.13.0",
-    "styled-components": "^6.1.15"
+    "styled-components": "^6.3.11"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

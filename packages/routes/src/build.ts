@@ -1,7 +1,6 @@
 import type {SanityClient} from '@sanity/client'
 import type {BuildResult, RoutesConfig, RouteMapShard} from './types.js'
-
-const DEFAULT_PATH_EXPRESSION = 'slug.current'
+import {DEFAULT_PATH_EXPRESSION} from './constants.js'
 
 /**
  * Builds route map shards for all types in a channel's route config.
