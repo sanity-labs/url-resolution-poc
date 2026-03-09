@@ -1,5 +1,11 @@
 import {documentEventHandler} from '@sanity/functions'
-import {createClient} from '@sanity/client'
+import {createClient, type Patch} from '@sanity/client'
+
+interface RouteConfigEntry {
+  types?: string[]
+  pathExpression?: string
+  basePath?: string
+}
 
 export const handler = documentEventHandler(async ({context, event}) => {
   const client = createClient({
@@ -22,7 +28,7 @@ export const handler = documentEventHandler(async ({context, event}) => {
   if (!config) return
 
   // Find the route entry for this document type
-  const route = config.routes?.find((r: any) => r.types?.includes(docType))
+  const route = config.routes?.find((r: RouteConfigEntry) => r.types?.includes(docType))
   if (!route) return
 
   const pathExpr = route.pathExpression || 'slug.current'
@@ -61,7 +67,7 @@ export const handler = documentEventHandler(async ({context, event}) => {
   const tx = client.transaction()
 
   for (const redirect of chainsToFlatten) {
-    tx.patch(redirect._id, (p: any) => p.set({to: fullNewPath}))
+    tx.patch(redirect._id, (p: Patch) => p.set({to: fullNewPath}))
   }
 
   // \u2500\u2500 Create or update the redirect \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -78,7 +84,7 @@ export const handler = documentEventHandler(async ({context, event}) => {
     document: {_type: 'reference', _ref: docId, _weak: true},
   })
   // If redirect already exists (re-publish), update the target
-  tx.patch(redirectId, (p: any) => p.set({to: fullNewPath}))
+  tx.patch(redirectId, (p: Patch) => p.set({to: fullNewPath}))
 
   // \u2500\u2500 Loop prevention \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   // If a redirect FROM the new path exists, delete it to prevent loops

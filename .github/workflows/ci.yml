@@ -61,8 +61,8 @@ jobs:
       - run: pnpm --filter @sanity/routes build
       - name: Configure blueprints scope
         working-directory: studio
-        run: pnpx sanity@latest blueprints config --edit --project-id bb8k7pej --stack-id ST-hag5e69ag7
-      - run: pnpx sanity@latest blueprints deploy
+        run: pnpx sanity@3.99.0 blueprints config --edit --project-id ${{ vars.SANITY_PROJECT_ID }} --stack-id ${{ vars.SANITY_STACK_ID }}
+      - run: pnpx sanity@3.99.0 blueprints deploy
         working-directory: studio
         env:
           SANITY_AUTH_TOKEN: ${{ secrets.SANITY_AUTH_TOKEN }}

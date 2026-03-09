@@ -1,5 +1,3 @@
-import type {SanityClient} from '@sanity/client'
-
 /**
  * Route configuration document stored in Content Lake.
  *
@@ -306,11 +304,6 @@ export interface RouteResolver {
    * ```
    */
   pathProjection(type: string): Promise<string>
-
-  /**
-   * @deprecated Use {@link pathProjection} instead.
-   */
-  groqField(type: string): Promise<string>
 
   /**
    * Resolve a document ID to just the URL pathname (no origin).

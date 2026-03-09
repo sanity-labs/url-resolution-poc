@@ -8,8 +8,8 @@ import type {
   DiagnosisResult,
   ResolverOptions,
 } from './types.js'
+import {DEFAULT_PATH_EXPRESSION} from './constants.js'
 
-const DEFAULT_PATH_EXPRESSION = 'slug.current'
 const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
 
 /**
@@ -432,11 +432,6 @@ export function createRouteResolver(
       // Return a complete GROQ projection field assignment
       const pathExpr = route.pathExpression || DEFAULT_PATH_EXPRESSION
       return `"path": ${pathExpr}`
-    },
-
-    /** @deprecated Use {@link pathProjection} instead. */
-    async groqField(type: string): Promise<string> {
-      return resolver.pathProjection(type)
     },
 
     async resolvePathById(id: string, options?: LocaleOptions): Promise<string | null> {
