@@ -16,7 +16,7 @@
     "@sanity/routes": "workspace:*",
     "ai": "^6.0.116",
     "next": "^16.1.6",
-    "next-sanity": "^12.1.0",
+    "next-sanity": "^12.1.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "streamdown": "^2.4.0",
@@ -25,6 +25,6 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }
